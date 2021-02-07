@@ -27,3 +27,6 @@ project/plugins/project/
 *.log
 
 # End of https://www.toptal.com/developers/gitignore/api/scala,sbt,metals
+
+## domain
+infra/dbData

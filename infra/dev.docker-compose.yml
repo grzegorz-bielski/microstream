@@ -1,0 +1,12 @@
+version: '3.8'
+
+services: 
+  db:
+    container_name: db-service
+    env_file: .dev_env
+    image: postgres:13.0
+    restart: unless-stopped
+    ports: 
+      - 5432:5432
+    volumes:
+      - ./dbData:/var/lib/postgresql/data
