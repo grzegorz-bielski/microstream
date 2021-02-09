@@ -3,54 +3,80 @@ package com.microstream.channel
 import com.microstream.CborSerializable
 import scala.concurrent.duration._
 
-import akka.persistence.typed.scaladsl.ReplyEffect
-import akka.persistence.typed.scaladsl.Effect
-import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
-import akka.cluster.sharding.typed.scaladsl.ClusterSharding
-import akka.cluster.sharding.typed.scaladsl.Entity
-import akka.persistence.typed.scaladsl.EventSourcedBehavior
+import akka.persistence.typed.scaladsl.{ Effect, ReplyEffect, EventSourcedBehavior, RetentionCriteria}
+import akka.cluster.sharding.typed.scaladsl.{ EntityTypeKey, ClusterSharding, Entity }
+import akka.actor.typed.{ ActorSystem, ActorRef, SupervisorStrategy }
 import akka.persistence.typed.PersistenceId
-import akka.persistence.typed.scaladsl.RetentionCriteria
-import akka.actor.typed.SupervisorStrategy
+import akka.pattern.StatusReply
 
 // https://github.com/johanandren/chat-with-akka-http-websockets/blob/master/src/main/scala/chat/Server.scala
 object Channel:
-  val EntityKey = EntityTypeKey[Command]("Channel")
   opaque type Id = String
   object Id:
     def apply(str: String): Id = str
+  extension (id: Id)
+    def unwrap: String = id
+
+  enum Message extends CborSerializable:
+
+    case Post(id: String, content: String)
+
+// a persistent sharded store for a given channel
+private[channel] object ChannelStore:
+  val EntityKey = EntityTypeKey[Command]("channel-store")
+
+  type SummaryReceiver = ActorRef[StatusReply[State.Summary]]
 
   enum Command extends CborSerializable:
-    case Customize(name: Option[String], description: Option[String])
-    case Message(id: String, content: String)
+    case Open(name: String, replyTo: SummaryReceiver)
+    case Customize(name: String, replyTo: SummaryReceiver)
+    case Message(id: String, content: String, replyTo: SummaryReceiver)
+  object Command:
+    type All = Command.Open & Command.Customize & Command.Message
 
   enum Event extends CborSerializable:
-    case Customized(channelId: Id, name: Option[String], description: Option[String])
-    case Messaged(channelId: Id, msgId: String, content: String)
+    case Opened(channelId: Channel.Id, name: String)
+    case Customized(channelId: Channel.Id, name: String)
+    case Messaged(channelId: Channel.Id, msgId: String, content: String)
+
+  sealed trait State extends CborSerializable:
+    def onCommand(channelId: Channel.Id, command: Command): ReplyEffect[Event, State]
+    def onEvent(event: Event): State
+    val successReply = (s: State) => StatusReply.Success(State.Summary(s))
 
   object State:
-    val empty = State(None, None, Vector())
+    final case class Summary(state: State)
 
-  final case class State(
-    name: Option[String], 
-    description: Option[String], 
-    msgs: Vector[Event.Messaged]
-  ):
-    def handleCommand(channelId: Id, command: Command): ReplyEffect[Event, State] = command match
-      case Command.Customize(name, description) => ???
+    case object Empty extends State:
+      def onCommand(channelId: Channel.Id, command: Command) = command match
+        case Command.Open(name, replyTo) => Effect.persist(Event.Opened(channelId, name)).thenReply(replyTo)(successReply)
+        case other: Command.All          => Effect.reply(other.replyTo)(StatusReply.Error(s"The channel is not open"))
+      def onEvent(event: Event) = event match
+        case Event.Opened(_, name) => State.Open(name, Stream.empty)
+        case _                     => this
 
-    def handleEvent(event: Event): State = event match
-      case m: Event.Messaged    => copy(msgs = msgs :+ m)
-      case e: Event.Customized  => ???
+    case class Open(name: String, msgs: Stream[Event.Messaged]) extends State:
+      def onCommand(channelId: Channel.Id, command: Command): ReplyEffect[Event, State] = command match
+        case Command.Open(name, replyTo)           => Effect.reply(replyTo)(StatusReply.Error(s"The `$name` channel has already been opened"))
+        case Command.Customize(name, replyTo)      => Effect.persist(Event.Customized(channelId, name)).thenReply(replyTo)(successReply)
+        case Command.Message(id, content, replyTo) => Effect.persist(Event.Messaged(channelId, id, content)).thenReply(replyTo)(successReply)
 
+      def onEvent(event: Event): State = event match 
+        case Event.Customized(_, name) => copy(name = name)
+        case msg: Event.Messaged       => copy(msgs = msgs :+ msg)
+        case _                         => this
 
-  def apply(channelId: Id) =
+  def init(system: ActorSystem[_]) = 
+    ClusterSharding(system)
+      .init(Entity(EntityKey)(ctx => ChannelStore(Channel.Id(ctx.entityId))))
+
+  def apply(channelId: Channel.Id) =
     EventSourcedBehavior
       .withEnforcedReplies[Command, Event, State](
-        persistenceId = PersistenceId(EntityKey.name, channelId),
-        emptyState = State.empty,
-        commandHandler = (state, command) => state.handleCommand(channelId, command),
-        eventHandler = (state, event) => state.handleEvent(event)
+        persistenceId = PersistenceId(EntityKey.name, channelId.unwrap),
+        emptyState = State.Empty,
+        commandHandler = (state, command) => state.onCommand(channelId, command),
+        eventHandler = (state, event) => state.onEvent(event)
       )
       .withRetention(
         RetentionCriteria.snapshotEvery(

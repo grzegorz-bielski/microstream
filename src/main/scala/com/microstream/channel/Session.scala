@@ -17,11 +17,22 @@ object Session:
 
     def apply(channelId: Channel.Id) = Behaviors.setup[Session.Message] { context => 
       context.log.info("Started a new session")
+
+      // def connected(socketRef: ActorRef[WebSocketMsg]) = Behaviors.receiveMessage[Session.Message] {
+
+      // }
     
       Behaviors.receiveMessage {
-        case Message.Close => Behaviors.stopped
+        case Message.Close      => Behaviors.stopped
+        // case Message.Connected  => 
         case _ => Behaviors.same
       }
+
+      // TODO: handle the connected state
+      // send msgs to socketRef from channel
+      // send incoming msg to channel
+      
     }
+
 
     // def connected()

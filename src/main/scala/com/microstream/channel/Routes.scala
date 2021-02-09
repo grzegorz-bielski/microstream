@@ -14,9 +14,10 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.util.Timeout
 import akka.actor.typed.Props
 
+type System = ActorSystem[SpawnProtocol.Command]
 
 object Routes:
-  def apply()(using system: ActorSystem[SpawnProtocol.Command]) =
+  def apply()(using system: System) =
     import akka.http.scaladsl.server.Directives._
 
     path("channel" / Segment) { id =>
@@ -25,7 +26,7 @@ object Routes:
       }
     }
 
-  private def openSession(id: String)(using system: ActorSystem[SpawnProtocol.Command]): ActorRef[Session.Message] =
+  private def openSession(id: String)(using system: System): ActorRef[Session.Message] =
     given ExecutionContextExecutor = system.executionContext
     given Timeout = Timeout(3.seconds)
     
@@ -39,7 +40,7 @@ object Routes:
     )
 
 
-  private def assembleGraph(sessionRef: ActorRef[Session.Message]) = 
+  private def assembleGraph(sessionRef: ActorRef[Session.Message])(using system: System) = 
     val sink = Flow[Message]
       .map {
         case TextMessage.Strict(text) => Session.Message.Incoming(text)
@@ -53,8 +54,8 @@ object Routes:
       )
 
     val source = ActorSource.actorRef[Session.WebSocketMsg](
-        { case Session.WebSocketMsg.Complete => },
-        { case Session.WebSocketMsg.Fail => new IllegalStateException() },
+        { case Session.WebSocketMsg.Complete => system.log.info("completed") },
+        { case Session.WebSocketMsg.Fail     => new IllegalStateException() },
         bufferSize = 100,
         overflowStrategy = OverflowStrategy.fail
       )
