@@ -29,8 +29,8 @@ object Session:
       }
 
       // TODO: handle the connected state
-      // send msgs to socketRef from channel
-      // send incoming msg to channel
+      // send incoming msgs to socketRef from channel
+      // send WebSocketMsg msg to channel
       
     }
 
