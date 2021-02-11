@@ -15,14 +15,14 @@ import akka.stream.typed.scaladsl
 import com.microstream.channel.Routes
 
 @main def start() = 
-  given system: ActorSystem[SpawnProtocol.Command] = ActorSystem(rootGuardian(), "root-guardian")
+  given system: ActorSystem[SpawnProtocol.Command] = ActorSystem(SpawnProtocol(), "root-guardian")
   given ExecutionContextExecutor = system.executionContext
 
   migrate()
 
   Http()
     .newServerAt("localhost", 8080)
-    .bind(Routes())
+    .bind(RootController())
     .onComplete {
       case Success(binding) => 
         import binding.localAddress.{getHostString => host, getPort => port}
@@ -33,22 +33,15 @@ import com.microstream.channel.Routes
         system.terminate()
     }
 
-def rootGuardian() = Behaviors.setup[SpawnProtocol.Command] { context =>
-  context.log.info("started")
-
-  SpawnProtocol()
-}
-
-
-def migrate() = 
+private def migrate() = 
     import com.typesafe.config.ConfigFactory
     import org.flywaydb.core.Flyway
 
-     val conf = ConfigFactory.load
+     val c = ConfigFactory.load
      val (url, user, password) = (
-       conf.getString("slick.db.url"), 
-       conf.getString("slick.db.user"),
-       conf.getString("slick.db.password")
+       c.getString("slick.db.url"), 
+       c.getString("slick.db.user"),
+       c.getString("slick.db.password")
      )
 
      Flyway

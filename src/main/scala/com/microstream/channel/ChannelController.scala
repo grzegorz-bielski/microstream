@@ -16,8 +16,8 @@ import akka.actor.typed.Props
 
 type System = ActorSystem[SpawnProtocol.Command]
 
-object Routes:
-  def apply()(using system: System) =
+class ChannelController(using system: System):
+  lazy val route =
     import akka.http.scaladsl.server.Directives._
 
     path("channel" / Segment) { id =>
@@ -26,11 +26,13 @@ object Routes:
       }
     }
 
-  private def openSession(id: String)(using system: System): ActorRef[Session.Message] =
+  private def openSession(id: String): ActorRef[Session.Message] =
     given ExecutionContextExecutor = system.executionContext
     given Timeout = Timeout(3.seconds)
     
     val uuid = java.util.UUID.randomUUID.toString
+
+    // find / create channel first (separate route for creation ?)
     
     Await.result(
       system.ask(
@@ -40,7 +42,7 @@ object Routes:
     )
 
 
-  private def assembleGraph(sessionRef: ActorRef[Session.Message])(using system: System) = 
+  private def assembleGraph(sessionRef: ActorRef[Session.Message]) = 
     val sink = Flow[Message]
       .map {
         case TextMessage.Strict(text) => Session.Message.Incoming(text)
