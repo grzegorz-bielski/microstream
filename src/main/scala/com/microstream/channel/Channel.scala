@@ -18,6 +18,16 @@ class Channel(using system: ActorSystem[_]):
 
   val sharding = ClusterSharding(system)
 
+  // -- joining (ws)
+  // check if channel store exists by sharding id
+  //    - exists -> is in the memory ? join : (spawn new & join)
+  //    - doesn't exists -> exception - the channel has to be created first
+  
+  // -- creating (rest)
+  // check if channel store exists by sharding id
+  //    -- exists -> exception, the channel is already present
+  //    -- nope -> create new channel, derive sharding id from provided name
+
   ChannelStore.init(system)
   // todo: channel guardian / receptionsts to keep track of open channels
   def spawn(channelId: Channel.Id): Behavior[Protocol] = Behaviors.setup[PrivateProtocol] { context => 

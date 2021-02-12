@@ -37,13 +37,15 @@ private[channel] object ChannelStore:
   private object State:
     case object Empty extends State:
       def onCommand(channelId: Channel.Id, command: Command) = command match
-        case Command.Open(name, replyTo) => Effect.persist(Event.Opened(channelId, name)).thenReply(replyTo)(successReply)
-        case other: Command.All          => Effect.reply(other.replyTo)(StatusReply.Error(s"The channel is not open"))
+        case Command.Open(name, replyTo)                   => 
+          Effect.persist(Event.Opened(channelId, name)).thenReply(replyTo)(successReply)
+        case other @ (_:Command.Customize | _:Command.Message) => 
+          Effect.reply(other.asInstanceOf[Command.All].replyTo)(StatusReply.Error(s"The channel is not open"))
       def onEvent(event: Event) = event match
-        case Event.Opened(_, name) => State.Open(name, Stream.empty)
+        case Event.Opened(_, name) => State.Open(name, LazyList.empty)
         case _                     => this
 
-    case class Open(name: String, msgs: Stream[Event.Messaged]) extends State:
+    case class Open(name: String, msgs: LazyList[Event.Messaged]) extends State:
       def onCommand(channelId: Channel.Id, command: Command) = command match
         case Command.Open(name, replyTo)           => Effect.reply(replyTo)(StatusReply.Error(s"The `$name` channel has already been opened"))
         case Command.Customize(name, replyTo)      => Effect.persist(Event.Customized(channelId, name)).thenReply(replyTo)(successReply)

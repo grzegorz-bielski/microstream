@@ -12,8 +12,6 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Success, Failure}
 import akka.stream.typed.scaladsl
 
-import com.microstream.channel.Routes
-
 @main def start() = 
   given system: ActorSystem[SpawnProtocol.Command] = ActorSystem(SpawnProtocol(), "root-guardian")
   given ExecutionContextExecutor = system.executionContext
