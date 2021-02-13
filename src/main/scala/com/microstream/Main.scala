@@ -24,13 +24,11 @@ lazy val config = ConfigFactory.load
 // https://www.freecodecamp.org/news/how-to-make-a-simple-application-with-akka-cluster-506e20a725cf/
 
 @main def start() =
-  val clusterName = config.getString ("clustering.cluster.name")
+  val clusterName = config.getString("clustering.cluster.name")
+
+  println(config.toString())
 
   ActorSystem(RootBehavior(), clusterName)
-
-  // // run it 
-
-
 
 def RootBehavior() = Behaviors.setup[Nothing] { context =>
   given ActorContext[Nothing] = context

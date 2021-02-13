@@ -35,3 +35,5 @@ libraryDependencies ++= Seq(
   "org.flywaydb" % "flyway-core" % "7.1.1",
   "org.postgresql" % "postgresql" % "42.2.18"
 ).map(_.withDottyCompat(scalaVersion.value))
+
+Compile / run / fork := true
