@@ -11,20 +11,16 @@ import akka.http.scaladsl.model.ws.{ Message, TextMessage }
 import scala.concurrent.{ ExecutionContextExecutor, Future }
 import scala.concurrent.duration._
 import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.scaladsl.ActorContext
 import akka.util.Timeout
 import akka.actor.typed.Props
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 
-type System = ActorSystem[SpawnProtocol.Command]
+// type System = ActorSystem[SpawnProtocol.Command]
 
-case class CreateChannel(name: String)
-object CreateChannel:
-  import io.circe.{ Decoder, Encoder }
-  given Decoder[CreateChannel] = Decoder.forProduct1("name")(CreateChannel.apply)
-  given Encoder[CreateChannel] = Encoder.forProduct1("name")(n => n.name)
-
-class ChannelController(using system: System) extends FailFastCirceSupport:
-  given ExecutionContextExecutor = system.executionContext
+class ChannelController(ctx: ActorContext[Nothing]) extends FailFastCirceSupport:
+  given system: ActorSystem[Nothing] = ctx.system
+  val channelService = ChannelService()
 
   lazy val route =
     import akka.http.scaladsl.server.Directives._
@@ -32,26 +28,21 @@ class ChannelController(using system: System) extends FailFastCirceSupport:
 
     pathPrefix("channel") {
       (pathEndOrSingleSlash & post) { 
-        entity(as[CreateChannel]) { channel => 
-           complete(HttpEntity(ContentTypes.`application/json`, """{ "msg": "xd"}"""))
+        entity(as[CreateChannelDto]) { channel => 
+
+          channelService.createChannel(channel)
+          complete(HttpEntity(ContentTypes.`application/json`, """{ "msg": "xd"}"""))
         }
       } ~
       path("connect" / Segment) { id =>
         handleWebSocketMessages {
-          Flow.futureFlow(openSession(id) map assembleGraph)
+          assembleGraph(openSession(id))
         }
       }
     }
     
-
-  private def openSession(id: String): Future[ActorRef[Session.Message]] =
-    given Timeout = Timeout(3.seconds)
-    
-    val uuid = java.util.UUID.randomUUID.toString
-
-    system.ask(
-      SpawnProtocol.Spawn(Session(Channel.Id(id)), s"session: $uuid", Props.empty, _)
-    )
+  private def openSession(id: String): ActorRef[Session.Message] =
+    ctx.spawn(Session(Channel.Id(id)), s"session: $id")
 
   private def assembleGraph(sessionRef: ActorRef[Session.Message]) =
     val sink = Flow[Message]

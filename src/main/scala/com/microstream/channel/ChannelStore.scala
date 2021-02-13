@@ -5,12 +5,13 @@ import scala.concurrent.duration._
 
 import akka.persistence.typed.scaladsl.{ Effect, ReplyEffect, EventSourcedBehavior, RetentionCriteria }
 import akka.cluster.sharding.typed.scaladsl.{ EntityTypeKey, ClusterSharding, Entity }
+import akka.cluster.sharding.typed.{ ClusterShardingSettings }
 import akka.actor.typed.{ ActorSystem, ActorRef, Behavior, SupervisorStrategy }
 import akka.persistence.typed.PersistenceId
 import akka.pattern.StatusReply
 
 // a persistent sharded store for a given channel
-private[channel] object ChannelStore:
+object ChannelStore:
   val EntityKey = EntityTypeKey[Command]("channel-store")
 
   type SummaryReceiver = ActorRef[StatusReply[Summary]]
@@ -56,9 +57,11 @@ private[channel] object ChannelStore:
         case msg: Event.Messaged       => copy(msgs = msgs :+ msg)
         case _                         => this
 
-  def init(system: ActorSystem[_]) = 
-    ClusterSharding(system)
-      .init(Entity(EntityKey)(ctx => ChannelStore(Channel.Id(ctx.entityId))))
+  def initSharding(role: String)(using system: ActorSystem[_]) = 
+    ClusterSharding(system) init Entity(ChannelStore.EntityKey){ ctx => 
+          ChannelStore(Channel.Id(ctx.entityId))
+      }.withSettings(ClusterShardingSettings(system).withRole(role))
+      
 
   def apply(channelId: Channel.Id) =
     EventSourcedBehavior

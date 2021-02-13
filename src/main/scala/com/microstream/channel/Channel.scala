@@ -12,6 +12,17 @@ import akka.pattern.StatusReply
 import akka.util.Timeout
 import scala.util.{ Try, Success, Failure }
 
+class ChannelService(using system: ActorSystem[_]):
+  val sharding = ClusterSharding(system)
+
+  def createChannel(input: CreateChannelDto) =
+    val channelId = Channel.Id.generate(input.name)
+
+    val ref = sharding.entityRefFor(ChannelStore.EntityKey, channelId.unwrap)
+
+    // ref ! ChannelStore.Command.Open(name)
+
+
 // https://github.com/johanandren/chat-with-akka-http-websockets/blob/master/src/main/scala/chat/Server.scala
 class Channel(using system: ActorSystem[_]):
   import Channel._
@@ -28,7 +39,7 @@ class Channel(using system: ActorSystem[_]):
   //    -- exists -> exception, the channel is already present
   //    -- nope -> create new channel, derive sharding id from provided name
 
-  ChannelStore.init(system)
+  // ChannelStore.init(system)
   // todo: channel guardian / receptionsts to keep track of open channels
   def spawn(channelId: Channel.Id): Behavior[Protocol] = Behaviors.setup[PrivateProtocol] { context => 
     given Timeout = Timeout(3.seconds)
@@ -68,6 +79,12 @@ object Channel:
   opaque type Id = String
   object Id:
     def apply(str: String): Id = str
+    def generate(str: String): Id =
+      import java.util.Base64
+      import java.nio.charset.StandardCharsets
+
+      Base64.getEncoder.encodeToString(str.getBytes(StandardCharsets.UTF_8))
+
   extension (id: Id)
     def unwrap: String = id
 

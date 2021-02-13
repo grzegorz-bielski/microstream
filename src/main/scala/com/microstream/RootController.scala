@@ -2,12 +2,12 @@ package com.microstream
 
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.SpawnProtocol
+import akka.actor.typed.scaladsl.ActorContext
 import com.microstream.channel.ChannelController
 
-object RootController:
-    def apply()(using system: ActorSystem[SpawnProtocol.Command]) =
-      import akka.http.scaladsl.server.Directives._
-
-      pathPrefix("api") {
-        ChannelController().route
-      }
+def RootController(ctx: ActorContext[Nothing]) =
+  import akka.http.scaladsl.server.Directives._
+  
+  pathPrefix("api") {
+    ChannelController(ctx).route
+  }
