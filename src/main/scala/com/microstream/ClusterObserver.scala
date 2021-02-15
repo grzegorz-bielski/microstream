@@ -6,7 +6,6 @@ import akka.cluster.ClusterEvent.{ClusterDomainEvent, MemberRemoved, MemberUp, U
 import akka.cluster.typed.{Cluster, Subscribe}
 
 
-
 def ClusterObserver() = Behaviors.setup[ClusterDomainEvent] { context =>
   val cluster = Cluster(context.system)
   cluster.subscriptions ! Subscribe(context.self.ref, classOf[ClusterDomainEvent])

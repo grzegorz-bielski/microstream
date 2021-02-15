@@ -26,8 +26,6 @@ lazy val config = ConfigFactory.load
 @main def start() =
   val clusterName = config.getString("clustering.cluster.name")
 
-  println(config.toString())
-
   ActorSystem(RootBehavior(), clusterName)
 
 def RootBehavior() = Behaviors.setup[Nothing] { context =>
@@ -36,7 +34,7 @@ def RootBehavior() = Behaviors.setup[Nothing] { context =>
 
   val cluster = Cluster(context.system)
   val roles = cluster.selfMember.roles
-
+  
   context.log.info(s"Starting a new node with $roles role(s)")
 
   ChannelStore.initSharding(ChannelNode.Role)

@@ -16,19 +16,22 @@ object ChannelStore:
 
   type SummaryReceiver = ActorRef[StatusReply[Summary]]
 
-  enum Command extends CborSerializable:
-    case Open(name: String, replyTo: SummaryReceiver)
-    case Customize(name: String, replyTo: SummaryReceiver)
-    case Message(id: String, content: String, replyTo: SummaryReceiver)
+  // trait EnumSer[T] = Enum[T] extends CborSerializable
+
+  sealed trait Command extends CborSerializable
   object Command:
-    type All = Command.Open & Command.Customize & Command.Message
+    case class Open(name: String, replyTo: SummaryReceiver) extends Command
+    case class Customize(name: String, replyTo: SummaryReceiver) extends Command
+    case class Message(id: String, content: String, replyTo: SummaryReceiver) extends Command
+    type All = Command.Open & Command.Customize & Command.Message 
 
-  enum Event extends CborSerializable:
-    case Opened(channelId: Channel.Id, name: String)
-    case Customized(channelId: Channel.Id, name: String)
-    case Messaged(channelId: Channel.Id, msgId: String, content: String)
+  sealed trait Event extends CborSerializable
+  object Event:
+    case class Opened(channelId: Channel.Id, name: String) extends Event
+    case class Customized(channelId: Channel.Id, name: String) extends Event
+    case class Messaged(channelId: Channel.Id, msgId: String, content: String) extends Event
 
-  case class Summary(state: State)
+  case class Summary(state: State) extends CborSerializable
 
   sealed trait State extends CborSerializable:
     def onCommand(channelId: Channel.Id, command: Command): ReplyEffect[Event, State]
