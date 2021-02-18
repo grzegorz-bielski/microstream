@@ -4,35 +4,42 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 
-object Session:
-    enum WebSocketMsg:
-      case Message(txt: String)
-      case Complete
-      case Fail
+import com.microstream.CborSerializable
 
-    enum Message:
-      case Incoming(txt: String)
-      case Connected(socket: ActorRef[WebSocketMsg])
-      case Close
+object Session {
+  trait WebSocketMsg extends CborSerializable
+  object WebSocketMsg {
+    case class Message(txt: String) extends WebSocketMsg
+    case object Complete extends WebSocketMsg
+    case object Fail extends WebSocketMsg
+  }
 
-    def apply(channelId: Channel.Id) = Behaviors.setup[Session.Message] { context => 
+  trait Message extends CborSerializable
+  object Message {
+    case class Incoming(txt: String) extends Message
+    case class Connected(socket: ActorRef[WebSocketMsg]) extends Message
+    case object Close extends Message
+  }
+
+  def apply(channelId: Channel.Id) = Behaviors.setup[Session.Message] {
+    context =>
       context.log.info("Started a new session")
 
       // def connected(socketRef: ActorRef[WebSocketMsg]) = Behaviors.receiveMessage[Session.Message] {
 
       // }
-    
+
       Behaviors.receiveMessage {
-        case Message.Close      => Behaviors.stopped
-        // case Message.Connected  => 
+        case Message.Close => Behaviors.stopped
+        // case Message.Connected  =>
         case _ => Behaviors.same
       }
 
-      // TODO: handle the connected state
-      // send incoming msgs to socketRef from channel
-      // send WebSocketMsg msg to channel
-      
-    }
+    // TODO: handle the connected state
+    // send incoming msgs to socketRef from channel
+    // send WebSocketMsg msg to channel
 
+  }
 
-    // def connected()
+  // def connected()
+}

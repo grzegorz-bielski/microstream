@@ -1,6 +1,6 @@
 name := "microstream"
 version := "1.0"
-scalaVersion := "3.0.0-M3"
+scalaVersion := "2.13.4"
 
 lazy val akkaVersion = "2.6.12"
 lazy val akkaHttpVersion = "10.2.3"
@@ -34,6 +34,9 @@ libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick-hikaricp" % slickVersion,
   "org.flywaydb" % "flyway-core" % "7.1.1",
   "org.postgresql" % "postgresql" % "42.2.18"
-).map(_.withDottyCompat(scalaVersion.value))
+)
 
 Compile / run / fork := true
+// Compile / javaOptions ++= Seq(
+//   "-parameters"
+// ) // https://doc.akka.io/docs/akka/current/serialization-jackson.html
