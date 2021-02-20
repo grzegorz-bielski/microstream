@@ -15,14 +15,15 @@ import akka.actor.typed.scaladsl.ActorContext
 import akka.util.Timeout
 import akka.actor.typed.Props
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
-import com.microstream.channel.ChannelService
+// import com.microstream.channel.ChannelService
 
 // type System = ActorSystem[SpawnProtocol.Command]
 
-class ChannelController(ctx: ActorContext[Nothing])
-    extends FailFastCirceSupport {
-  implicit val system: ActorSystem[Nothing] = ctx.system
-  val channelService = new ChannelService()
+class ChannelController(chanGuardian: ActorRef[ChannelGuardian.Message])(implicit
+    system: ActorSystem[_]
+) extends FailFastCirceSupport {
+  // implicit val system: ActorSystem[Nothing] = system
+  // val channelService = new ChannelService()
 
   lazy val route = {
     import akka.http.scaladsl.server.Directives._
@@ -30,8 +31,9 @@ class ChannelController(ctx: ActorContext[Nothing])
 
     pathPrefix("channel") {
       (pathEndOrSingleSlash & post) {
-        entity(as[CreateChannelDto]) { channel =>
-          channelService.createChannel(channel)
+        entity(as[CreateChannelDto]) { dto =>
+          chanGuardian ! ChannelGuardian.Message.CreateChannel(dto)
+
           complete(
             HttpEntity(ContentTypes.`application/json`, """{ "msg": "xd"}""")
           )
@@ -45,8 +47,8 @@ class ChannelController(ctx: ActorContext[Nothing])
     }
   }
 
-  private def openSession(id: String): ActorRef[Session.Message] =
-    ctx.spawn(Session(Channel.Id(id)), s"session: $id")
+  // private def openSession(id: String): ActorRef[Session.Message] =
+  //   ctx.spawn(Session(Channel.Id(id)), s"session: $id")
 
   private def assembleGraph(sessionRef: ActorRef[Session.Message]) = {
     val sink = Flow[Message]

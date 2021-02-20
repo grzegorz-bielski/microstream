@@ -17,14 +17,7 @@ import com.microstream.channel.Channel
 
 import com.typesafe.config.{ConfigFactory, Config}
 import org.flywaydb.core.Flyway
-
-// https://github.com/akka/akka-sample-cluster-docker-compose-scala/blob/master/src/main/resources/application.conf
-// https://www.freecodecamp.org/news/how-to-make-a-simple-application-with-akka-cluster-506e20a725cf/
-
-// @main def start() =
-//   val clusterName = config.getString("clustering.cluster.name")
-
-//   ActorSystem(RootBehavior(), clusterName)
+import com.microstream.channel.ChannelGuardian
 
 object Root extends App {
   lazy val config = ConfigFactory.load
@@ -36,7 +29,6 @@ object Root extends App {
 
 object RootBehavior {
   def apply(c: Config) = Behaviors.setup[Nothing] { context =>
-    implicit val ac: ActorContext[Nothing] = context
     implicit val as: ActorSystem[Nothing] = context.system
 
     val cluster = Cluster(context.system)
@@ -44,11 +36,11 @@ object RootBehavior {
 
     context.log.info(s"Starting a new node with $roles role(s)")
 
-    ChannelStore.initSharding(ChannelNode.Role)
+    val chanGuardianRef = context.spawn(ChannelGuardian(ChannelNode.Role), "channel-guardian")
 
     roles collect {
       case ChannelNode.Role => ChannelNode.migrate(c)
-      case HttpNode.Role    => HttpNode.startServer()
+      case HttpNode.Role    => HttpNode.startServer(chanGuardianRef)
     }
 
     if (isSeedNode(c)) {
@@ -70,15 +62,14 @@ object RootBehavior {
 object HttpNode {
   val Role = "http"
 
-  def startServer()(implicit
-      ctx: ActorContext[Nothing],
-      system: ActorSystem[_]
-  ) = {
+  def startServer(
+      chanGuardian: ActorRef[ChannelGuardian.Message]
+  )(implicit system: ActorSystem[_]) = {
     implicit val ex: ExecutionContextExecutor = system.executionContext
 
     Http()
       .newServerAt("localhost", 8080)
-      .bind(RootController(ctx))
+      .bind(RootController(chanGuardian))
       .onComplete {
         case Success(binding) =>
           import binding.localAddress.{getHostString => host, getPort => port}

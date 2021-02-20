@@ -21,23 +21,22 @@ object Session {
     case object Close extends Message
   }
 
-  def apply(channelId: Channel.Id) = Behaviors.setup[Session.Message] {
-    context =>
-      context.log.info("Started a new session")
+  def apply(channelId: Channel.Id) = Behaviors.setup[Session.Message] { context =>
+    context.log.info("Started a new session")
 
-      // def connected(socketRef: ActorRef[WebSocketMsg]) = Behaviors.receiveMessage[Session.Message] {
+    // def connected(socketRef: ActorRef[WebSocketMsg]) = Behaviors.receiveMessage[Session.Message] {
 
-      // }
+    // }
 
-      Behaviors.receiveMessage {
-        case Message.Close => Behaviors.stopped
-        // case Message.Connected  =>
-        case _ => Behaviors.same
-      }
+    Behaviors.receiveMessage {
+      case Message.Close => Behaviors.stopped
+      // case Message.Connected  =>
+      case _ => Behaviors.same
+    }
 
-    // TODO: handle the connected state
-    // send incoming msgs to socketRef from channel
-    // send WebSocketMsg msg to channel
+  // TODO: handle the connected state
+  // send incoming msgs to socketRef from channel
+  // send WebSocketMsg msg to channel
 
   }
 

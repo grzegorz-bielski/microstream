@@ -9,11 +9,7 @@ import akka.persistence.typed.scaladsl.{
   EventSourcedBehavior,
   RetentionCriteria
 }
-import akka.cluster.sharding.typed.scaladsl.{
-  EntityTypeKey,
-  ClusterSharding,
-  Entity
-}
+import akka.cluster.sharding.typed.scaladsl.{EntityTypeKey, ClusterSharding, Entity}
 import akka.cluster.sharding.typed.{ClusterShardingSettings}
 import akka.actor.typed.{ActorSystem, ActorRef, Behavior, SupervisorStrategy}
 import akka.persistence.typed.PersistenceId
@@ -32,8 +28,7 @@ object ChannelStore {
   object Command {
     case class Open(name: String, replyTo: SummaryReceiver) extends Command
     case class Customize(name: String, replyTo: SummaryReceiver) extends Command
-    case class Message(id: String, content: String, replyTo: SummaryReceiver)
-        extends Command
+    case class Message(id: String, content: String, replyTo: SummaryReceiver) extends Command
     // type All = Command.Open & Command.Customize & Command.Message
     type All = Command.Open with Command.Customize with Command.Message
   }
@@ -42,8 +37,7 @@ object ChannelStore {
   object Event {
     case class Opened(channelId: Channel.Id, name: String) extends Event
     case class Customized(channelId: Channel.Id, name: String) extends Event
-    case class Messaged(channelId: Channel.Id, msgId: String, content: String)
-        extends Event
+    case class Messaged(channelId: Channel.Id, msgId: String, content: String) extends Event
   }
 
   final case class Summary(state: String) extends CborSerializable
@@ -52,13 +46,13 @@ object ChannelStore {
 
   val successReply = (s: State) => StatusReply.Success(Summary("ok"))
 
-  @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
-  @JsonSubTypes(
-    Array(
-      new JsonSubTypes.Type(value = classOf[Empty], name = "empty"),
-      new JsonSubTypes.Type(value = classOf[Open], name = "open")
-    )
-  )
+  // @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+  // @JsonSubTypes(
+  //   Array(
+  //     new JsonSubTypes.Type(value = classOf[Empty], name = "empty"),
+  //     new JsonSubTypes.Type(value = classOf[Open], name = "open")
+  //   )
+  // )
   sealed abstract class State {
     def onCommand(
         channelId: Channel.Id,
@@ -127,8 +121,7 @@ object ChannelStore {
       .withEnforcedReplies[Command, Event, State](
         persistenceId = PersistenceId(EntityKey.name, channelId),
         emptyState = Empty(),
-        commandHandler =
-          (state, command) => state.onCommand(channelId, command),
+        commandHandler = (state, command) => state.onCommand(channelId, command),
         eventHandler = (state, event) => state.onEvent(event)
       )
       .withRetention(
