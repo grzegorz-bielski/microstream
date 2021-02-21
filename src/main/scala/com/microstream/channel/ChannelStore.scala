@@ -27,8 +27,9 @@ object ChannelStore {
     case class Open(name: String, replyTo: SummaryReceiver) extends Command
     case class Customize(name: String, replyTo: SummaryReceiver) extends Command
     case class Message(id: String, content: String, replyTo: SummaryReceiver) extends Command
-    // type All = Command.Open & Command.Customize & Command.Message
-    type All = Command.Open with Command.Customize with Command.Message
+    case class IsOpen(replyTo: ActorRef[StatusReply[Boolean]]) extends Command
+
+    type All = Command.Open with Command.Customize with Command.Message with Command.IsOpen
   }
 
   sealed trait Event extends CborSerializable
@@ -42,13 +43,6 @@ object ChannelStore {
 
   val successReply = (s: State) => StatusReply.Success(Summary("ok"))
 
-  // @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
-  // @JsonSubTypes(
-  //   Array(
-  //     new JsonSubTypes.Type(value = classOf[Empty], name = "empty"),
-  //     new JsonSubTypes.Type(value = classOf[Open], name = "open")
-  //   )
-  // )
   sealed abstract class State {
     def onCommand(
         channelId: Channel.Id,
@@ -61,6 +55,9 @@ object ChannelStore {
     def onCommand(channelId: Channel.Id, command: Command) = {
       println(("channelId", channelId, "command", command))
       command match {
+        case Command.IsOpen(replyTo) =>
+          Effect.reply(replyTo)(StatusReply.Success(false))
+
         case Command.Open(name, replyTo) =>
           Effect
             .persist(Event.Opened(channelId, name))
@@ -84,6 +81,9 @@ object ChannelStore {
 
   case class Open(name: String, msgs: LazyList[Event.Messaged]) extends State {
     def onCommand(channelId: Channel.Id, command: Command) = command match {
+      case Command.IsOpen(replyTo) =>
+        Effect.reply(replyTo)(StatusReply.Success(true))
+
       case Command.Open(name, replyTo) =>
         Effect.reply(replyTo)(
           StatusReply.Error(s"The `$name` channel has already been opened")

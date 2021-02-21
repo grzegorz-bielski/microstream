@@ -1,31 +1,23 @@
 package com.microstream.channel
 
 import akka.actor.typed.ActorSystem
-import akka.actor.typed.SpawnProtocol
 import akka.actor.typed.ActorRef
 import akka.NotUsed
-import akka.stream.scaladsl._
+import akka.stream.scaladsl.Flow
 import akka.stream.typed.scaladsl._
 import akka.stream.OverflowStrategy
 import akka.http.scaladsl.model.ws.{Message => WsMessage, TextMessage}
-import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
 import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.scaladsl.ActorContext
 import akka.util.Timeout
-import akka.actor.typed.Props
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 import scala.concurrent.ExecutionContext
 import akka.pattern.StatusReply
-import akka.http.scaladsl.marshalling.Marshal
-import scala.util.Success
-import scala.util.Failure
+import scala.util.{Success, Failure}
 
-class ChannelController(
-    chanGuardian: ActorRef[ChannelGuardian.Message],
-    sessionGuardian: ActorRef[SessionGuardian.Message]
-)(implicit system: ActorSystem[_])
-    extends FailFastCirceSupport {
+class ChannelController(chanGuardian: ActorRef[ChannelGuardian.Message])(implicit
+    system: ActorSystem[_]
+) extends FailFastCirceSupport {
   implicit lazy val ec: ExecutionContext = system.executionContext
   implicit lazy val t: Timeout = Timeout(3.seconds)
 
@@ -57,14 +49,10 @@ class ChannelController(
     }
   }
 
-  private def openSession(id: String) = {
-    import SessionGuardian._
-
-    sessionGuardian
-      .askWithStatus(Message.OpenSession(id, _))
+  private def openSession(id: String) =
+    chanGuardian
+      .askWithStatus(ChannelGuardian.Message.JoinChannel(id, _))
       .map(_.ref)
-
-  }
 
   private def assembleGraph(session: ActorRef[Session.Message]) = {
     import Session._

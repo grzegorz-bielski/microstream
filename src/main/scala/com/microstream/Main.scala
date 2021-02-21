@@ -17,7 +17,7 @@ import com.microstream.channel.Channel
 
 import com.typesafe.config.{ConfigFactory, Config}
 import org.flywaydb.core.Flyway
-import com.microstream.channel.{ChannelGuardian, SessionGuardian}
+import com.microstream.channel.ChannelGuardian
 
 object Root extends App {
   lazy val config = ConfigFactory.load
@@ -38,8 +38,6 @@ object RootGuardian {
 
     implicit val cg: ActorRef[ChannelGuardian.Message] =
       context.spawn(ChannelGuardian(ChannelNode.Role), "channel-guardian")
-    implicit val sg: ActorRef[SessionGuardian.Message] =
-      context.spawn(SessionGuardian(), "session-guardian")
 
     roles collect {
       case ChannelNode.Role => ChannelNode.migrate(c)
@@ -67,8 +65,7 @@ object HttpNode {
 
   def startServer()(implicit
       system: ActorSystem[_],
-      chanGuardian: ActorRef[ChannelGuardian.Message],
-      sessionGuardianRef: ActorRef[SessionGuardian.Message]
+      chanGuardian: ActorRef[ChannelGuardian.Message]
   ) = {
     implicit val ex: ExecutionContextExecutor = system.executionContext
 
