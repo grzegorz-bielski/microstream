@@ -24,16 +24,21 @@ import akka.actor.typed.receptionist.Receptionist
 object ChannelGuardian {
   sealed trait Message extends CborSerializable
   object Message {
-    case class CreateChannel(dto: CreateChannelDto, replyTo: ActorRef[Channel.Id]) extends Message
+    case class CreateChannel(dto: CreateChannelDto, replyTo: ActorRef[StatusReply[Channel.Id]])
+        extends Message
     case class JoinChannel(channelId: Channel.Id, replyTo: ActorRef[Session.Message])
         extends Message
   }
 
   private trait PrivateMessage extends Message
   private object PrivateMessage {
-    case class ChannelCreationSuccess(id: Channel.Id, replyTo: ActorRef[Channel.Id])
+    case class ChannelCreationSuccess(id: Channel.Id, replyTo: ActorRef[StatusReply[Channel.Id]])
         extends PrivateMessage
-    case class ChannelCreationFailure(id: Channel.Id) extends PrivateMessage
+    case class ChannelCreationFailure(
+        e: Throwable,
+        id: Channel.Id,
+        replyTo: ActorRef[StatusReply[Channel.Id]]
+    ) extends PrivateMessage
     case class ChannelJoiningSuccess(id: Channel.Id) extends PrivateMessage
     case class ChannelJoiningFailure(id: Channel.Id) extends PrivateMessage
     case class ListingResponse(listing: Receptionist.Listing, msg: Message.JoinChannel)
@@ -50,8 +55,9 @@ object ChannelGuardian {
       sharding.entityRefFor(ChannelStore.EntityKey, id)
 
     def handleInternal(m: PrivateMessage): Behavior[Message] = m match {
-      case PrivateMessage.ChannelCreationFailure(id) =>
+      case PrivateMessage.ChannelCreationFailure(e, id, replyTo) =>
         context.log.warn("Failed to open a new channel: {}", id)
+        replyTo ! StatusReply.Error(e)
 
         Behaviors.same
 
@@ -60,7 +66,7 @@ object ChannelGuardian {
         val ref = context.spawn(Channel(storeRef(id)), s"channel-$id")
 
         context.system.receptionist ! Receptionist.Register(key, ref)
-        replyTo ! id
+        replyTo ! StatusReply.Success(id)
 
         context.log.info("Opened a new channel: {}", id)
 
@@ -86,7 +92,7 @@ object ChannelGuardian {
           ChannelStore.Command.Open(dto.name, _)
         ) {
           case Success(_) => PrivateMessage.ChannelCreationSuccess(id, replyTo)
-          case Failure(_) => PrivateMessage.ChannelCreationFailure(id)
+          case Failure(e) => PrivateMessage.ChannelCreationFailure(e, id, replyTo)
         }
 
         Behaviors.same

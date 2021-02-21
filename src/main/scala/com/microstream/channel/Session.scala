@@ -6,11 +6,12 @@ import akka.actor.typed.scaladsl.Behaviors
 
 import com.microstream.CborSerializable
 import akka.actor.typed.receptionist.Receptionist
+import akka.pattern.StatusReply
 
 object SessionGuardian {
   trait Message extends CborSerializable
   object Message {
-    case class OpenSession(id: String, replyTo: ActorRef[Summary]) extends Message
+    case class OpenSession(id: String, replyTo: ActorRef[StatusReply[Summary]]) extends Message
   }
 
   private trait PrivateMessage extends Message
@@ -18,15 +19,11 @@ object SessionGuardian {
     case class ListingResponse(
         listing: Receptionist.Listing,
         id: Channel.Id,
-        replyTo: ActorRef[Summary]
+        replyTo: ActorRef[StatusReply[Summary]]
     ) extends PrivateMessage
   }
 
-  trait Summary extends CborSerializable
-  object Summary {
-    case class Joined(session: ActorRef[Session.Message]) extends Summary
-    case class ChannelNotFound() extends Summary
-  }
+  case class Summary(ref: ActorRef[Session.Message]) extends CborSerializable
 
   def apply() = Behaviors.setup[Message] { context =>
     Behaviors.receiveMessage {
@@ -47,10 +44,10 @@ object SessionGuardian {
         val key = Channel.Key(channelId)
 
         listing.serviceInstances[Channel.Message](key).headOption match {
-          case None => replyTo ! Summary.ChannelNotFound()
+          case None => replyTo ! StatusReply.Error("Channel $channelId not found")
           case Some(channel) =>
             val session = context.spawn(Session(channel), s"session: $channelId")
-            replyTo ! Summary.Joined(session)
+            replyTo ! StatusReply.Success(Summary(session))
         }
 
         Behaviors.same
@@ -59,27 +56,27 @@ object SessionGuardian {
 }
 
 object Session {
-  trait WebSocketMsg extends CborSerializable
-  object WebSocketMsg {
-    case class Message(txt: String) extends WebSocketMsg
-    case object Complete extends WebSocketMsg
-    case object Fail extends WebSocketMsg
+  trait SocketMsg extends CborSerializable
+  object SocketMsg {
+    case class Message(txt: String) extends SocketMsg
+    case object Complete extends SocketMsg
+    case object Fail extends SocketMsg
   }
 
   trait Message extends CborSerializable
   object Message {
     case class FromSocket(txt: String) extends Message
     case class FromChannel(txt: String) extends Message
-    case class Connected(socket: ActorRef[WebSocketMsg]) extends Message
+    case class Connected(socket: ActorRef[SocketMsg]) extends Message
     case object Close extends Message
   }
 
   def apply(channel: ActorRef[Channel.Message]) = Behaviors.setup[Session.Message] { context =>
     context.log.info("Started a new session")
 
-    def connected(socket: ActorRef[WebSocketMsg]) = Behaviors.receiveMessage[Session.Message] {
+    def connected(socket: ActorRef[SocketMsg]) = Behaviors.receiveMessage[Session.Message] {
       case Message.FromChannel(content) =>
-        socket ! WebSocketMsg.Message(content)
+        socket ! SocketMsg.Message(content)
 
         Behaviors.same
 

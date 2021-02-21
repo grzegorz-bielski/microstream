@@ -16,6 +16,10 @@ import akka.util.Timeout
 import akka.actor.typed.Props
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 import scala.concurrent.ExecutionContext
+import akka.pattern.StatusReply
+import akka.http.scaladsl.marshalling.Marshal
+import scala.util.Success
+import scala.util.Failure
 
 class ChannelController(
     chanGuardian: ActorRef[ChannelGuardian.Message],
@@ -32,10 +36,14 @@ class ChannelController(
     pathPrefix("channel") {
       (pathEndOrSingleSlash & post) {
         entity(as[CreateChannelDto]) { dto =>
-          complete {
-            chanGuardian
-              .ask(ChannelGuardian.Message.CreateChannel(dto, _))
-              .map(ChannelSummaryDto(_))
+          val req = chanGuardian
+            .askWithStatus(ChannelGuardian.Message.CreateChannel(dto, _))
+            .map(ChannelSummaryDto(_))
+
+          onComplete(req) {
+            case Success(a)                             => complete(StatusCodes.Created -> a)
+            case Failure(StatusReply.ErrorMessage(msg)) => complete(StatusCodes.BadRequest -> msg)
+            case _                                      => complete(StatusCodes.InternalServerError)
           }
         }
       } ~
@@ -53,8 +61,9 @@ class ChannelController(
     import SessionGuardian._
 
     sessionGuardian
-      .ask(Message.OpenSession(id, _))
-      .collect { case Summary.Joined(ref) => ref }
+      .askWithStatus(Message.OpenSession(id, _))
+      .map(_.ref)
+
   }
 
   private def assembleGraph(session: ActorRef[Session.Message]) = {
@@ -67,9 +76,9 @@ class ChannelController(
       )
 
     val source = ActorSource
-      .actorRef[WebSocketMsg](
-        { case WebSocketMsg.Complete => system.log.info("ws completed") },
-        { case WebSocketMsg.Fail =>
+      .actorRef[SocketMsg](
+        { case SocketMsg.Complete => system.log.info("ws completed") },
+        { case SocketMsg.Fail =>
           system.log.error("ws failed")
           new IllegalStateException()
         },
@@ -81,9 +90,9 @@ class ChannelController(
         NotUsed
       }
       .map {
-        case WebSocketMsg.Message(txt) => TextMessage(txt)
-        case WebSocketMsg.Complete     => TextMessage("completed")
-        case WebSocketMsg.Fail         => TextMessage("failed")
+        case SocketMsg.Message(txt) => TextMessage(txt)
+        case SocketMsg.Complete     => TextMessage("completed")
+        case SocketMsg.Fail         => TextMessage("failed")
       }
 
     Flow.fromSinkAndSource(sink, source)
