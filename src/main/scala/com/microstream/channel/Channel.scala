@@ -24,16 +24,15 @@ import akka.actor.typed.receptionist.Receptionist
 object ChannelGuardian {
   sealed trait Message extends CborSerializable
   object Message {
-    case class CreateChannel(dto: CreateChannelDto) extends Message
+    case class CreateChannel(dto: CreateChannelDto, replyTo: ActorRef[Channel.Id]) extends Message
     case class JoinChannel(channelId: Channel.Id, replyTo: ActorRef[Session.Message])
         extends Message
-
-    case class OpenSession(id: String) extends Message
   }
 
   private trait PrivateMessage extends Message
   private object PrivateMessage {
-    case class ChannelCreationSuccess(id: Channel.Id) extends PrivateMessage
+    case class ChannelCreationSuccess(id: Channel.Id, replyTo: ActorRef[Channel.Id])
+        extends PrivateMessage
     case class ChannelCreationFailure(id: Channel.Id) extends PrivateMessage
     case class ChannelJoiningSuccess(id: Channel.Id) extends PrivateMessage
     case class ChannelJoiningFailure(id: Channel.Id) extends PrivateMessage
@@ -51,11 +50,19 @@ object ChannelGuardian {
       sharding.entityRefFor(ChannelStore.EntityKey, id)
 
     def handleInternal(m: PrivateMessage): Behavior[Message] = m match {
-      case PrivateMessage.ChannelCreationSuccess(id) =>
-        val ref = context.spawn(Channel(storeRef(id)), s"channel-$id")
+      case PrivateMessage.ChannelCreationFailure(id) =>
+        context.log.warn("Failed to open a new channel: {}", id)
+
+        Behaviors.same
+
+      case PrivateMessage.ChannelCreationSuccess(id, replyTo) =>
         val key = Channel.Key(id)
+        val ref = context.spawn(Channel(storeRef(id)), s"channel-$id")
 
         context.system.receptionist ! Receptionist.Register(key, ref)
+        replyTo ! id
+
+        context.log.info("Opened a new channel: {}", id)
 
         Behaviors.same
 
@@ -71,19 +78,14 @@ object ChannelGuardian {
     Behaviors.receiveMessage {
       case m: PrivateMessage => handleInternal(m)
 
-      case Message.OpenSession(id) =>
-        context.spawn(Session(Channel.Id(id)), s"session: $id")
-
-        Behaviors.same
-
-      case Message.CreateChannel(dto) =>
+      case Message.CreateChannel(dto, replyTo) =>
         val id = Channel.Id.generate(dto.name)
 
         context.askWithStatus(
           storeRef(id),
           ChannelStore.Command.Open(dto.name, _)
         ) {
-          case Success(_) => PrivateMessage.ChannelCreationSuccess(id)
+          case Success(_) => PrivateMessage.ChannelCreationSuccess(id, replyTo)
           case Failure(_) => PrivateMessage.ChannelCreationFailure(id)
         }
 
@@ -105,46 +107,23 @@ object Channel {
   def Key(id: Channel.Id) = ServiceKey[Message](s"channel-$id")
 
   def apply(storeRef: => EntityRef[ChannelStore.Command]) =
-    Behaviors
-      .setup[Message] { context =>
-        implicit val t: Timeout = Timeout(3.seconds)
+    Behaviors.setup[Message] { context =>
+      def connected(sessions: Sessions): Behavior[Message] =
+        Behaviors.receiveMessage {
+          case Message.Join(session) =>
+            context.log.info("Channel has a new session with {} ref", session)
 
-        def connected(sessions: Sessions): Behavior[Message] =
-          Behaviors.receiveMessage {
-            case Message.Join(session)          => connected(sessions :+ session)
-            case Message.Post(content, replyTo) =>
-              // don't wait for ack
-              sessions.foreach { session =>
-                session ! Session.Message.Incoming(content)
-              }
-              Behaviors.same
-            case _ => Behaviors.same
-          }
+            connected(sessions :+ session)
 
-        def empty(): Behavior[Message] = Behaviors.receiveMessage {
-          case Message.Create(name, sender) =>
-            context.askWithStatus(
-              storeRef,
-              ChannelStore.Command.Open(name, _)
-            ) {
-              case Success(r) =>
-                context.log.info("A `{}` channel was created", name)
-                InternalMessage.Opened(sender)
-              case Failure(e) =>
-                context.log.error(
-                  "Failed to create channel {}. Received {}",
-                  name,
-                  e
-                )
-                InternalMessage.ChannelCreationFailed()
-            }
+          case Message.Post(content) =>
+            // don't wait for ack
+            sessions.foreach { s => s ! Session.Message.FromChannel(content) }
+
             Behaviors.same
-          case InternalMessage.Opened(session) => connected(Vector(session))
-          case _                               => Behaviors.same
         }
 
-        empty()
-      }
+      connected(Sessions.empty)
+    }
 
   type Id = String
   object Id {
@@ -159,16 +138,12 @@ object Channel {
 
   sealed trait Message extends CborSerializable
   object Message {
-    case class Create(name: String, replyTo: ActorRef[Session.Message]) extends Message
     case class Join(replyTo: ActorRef[Session.Message]) extends Message
-    case class Post(content: String, replyTo: ActorRef[Session.Message]) extends Message
-  }
-
-  private trait InternalMessage extends Message
-  private object InternalMessage extends CborSerializable {
-    case class ChannelCreationFailed() extends InternalMessage
-    case class Opened(replyTo: ActorRef[Session.Message]) extends InternalMessage
+    case class Post(content: String) extends Message
   }
 
   type Sessions = Vector[ActorRef[Session.Message]]
+  object Sessions {
+    val empty: Sessions = Vector.empty
+  }
 }

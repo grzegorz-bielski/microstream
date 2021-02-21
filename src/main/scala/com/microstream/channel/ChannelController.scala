@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl._
 import akka.stream.typed.scaladsl._
 import akka.stream.OverflowStrategy
-import akka.http.scaladsl.model.ws.{Message, TextMessage}
+import akka.http.scaladsl.model.ws.{Message => WsMessage, TextMessage}
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
 import akka.actor.typed.scaladsl.AskPattern._
@@ -15,15 +15,15 @@ import akka.actor.typed.scaladsl.ActorContext
 import akka.util.Timeout
 import akka.actor.typed.Props
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
-// import com.microstream.channel.ChannelService
+import scala.concurrent.ExecutionContext
 
-// type System = ActorSystem[SpawnProtocol.Command]
-
-class ChannelController(chanGuardian: ActorRef[ChannelGuardian.Message])(implicit
-    system: ActorSystem[_]
-) extends FailFastCirceSupport {
-  // implicit val system: ActorSystem[Nothing] = system
-  // val channelService = new ChannelService()
+class ChannelController(
+    chanGuardian: ActorRef[ChannelGuardian.Message],
+    sessionGuardian: ActorRef[SessionGuardian.Message]
+)(implicit system: ActorSystem[_])
+    extends FailFastCirceSupport {
+  implicit lazy val ec: ExecutionContext = system.executionContext
+  implicit lazy val t: Timeout = Timeout(3.seconds)
 
   lazy val route = {
     import akka.http.scaladsl.server.Directives._
@@ -32,52 +32,58 @@ class ChannelController(chanGuardian: ActorRef[ChannelGuardian.Message])(implici
     pathPrefix("channel") {
       (pathEndOrSingleSlash & post) {
         entity(as[CreateChannelDto]) { dto =>
-          chanGuardian ! ChannelGuardian.Message.CreateChannel(dto)
-
-          complete(
-            HttpEntity(ContentTypes.`application/json`, """{ "msg": "xd"}""")
-          )
+          complete {
+            chanGuardian
+              .ask(ChannelGuardian.Message.CreateChannel(dto, _))
+              .map(ChannelSummaryDto(_))
+          }
         }
       } ~
         path("connect" / Segment) { id =>
           handleWebSocketMessages {
-            assembleGraph(openSession(id))
+            Flow.futureFlow {
+              openSession(id) map assembleGraph
+            }
           }
         }
     }
   }
 
-  // private def openSession(id: String): ActorRef[Session.Message] =
-  //   ctx.spawn(Session(Channel.Id(id)), s"session: $id")
+  private def openSession(id: String) = {
+    import SessionGuardian._
 
-  private def assembleGraph(sessionRef: ActorRef[Session.Message]) = {
-    val sink = Flow[Message]
-      .collect { case TextMessage.Strict(text) =>
-        Session.Message.Incoming(text)
-      }
+    sessionGuardian
+      .ask(Message.OpenSession(id, _))
+      .collect { case Summary.Joined(ref) => ref }
+  }
+
+  private def assembleGraph(session: ActorRef[Session.Message]) = {
+    import Session._
+
+    val sink = Flow[WsMessage]
+      .collect { case TextMessage.Strict(txt) => Message.FromSocket(txt) }
       .to(
-        ActorSink.actorRef(
-          sessionRef,
-          Session.Message.Close,
-          (_: Throwable) => Session.Message.Close
-        )
+        ActorSink.actorRef(session, Message.Close, (_: Throwable) => Message.Close)
       )
 
     val source = ActorSource
-      .actorRef[Session.WebSocketMsg](
-        { case Session.WebSocketMsg.Complete => system.log.info("completed") },
-        { case Session.WebSocketMsg.Fail => new IllegalStateException() },
+      .actorRef[WebSocketMsg](
+        { case WebSocketMsg.Complete => system.log.info("ws completed") },
+        { case WebSocketMsg.Fail =>
+          system.log.error("ws failed")
+          new IllegalStateException()
+        },
         bufferSize = 100,
         overflowStrategy = OverflowStrategy.fail
       )
-      .mapMaterializedValue { socketRef =>
-        sessionRef ! Session.Message.Connected(socketRef)
+      .mapMaterializedValue { socket =>
+        session ! Message.Connected(socket)
         NotUsed
       }
       .map {
-        case Session.WebSocketMsg.Message(txt) => TextMessage(txt)
-        case Session.WebSocketMsg.Complete     => TextMessage("completed")
-        case Session.WebSocketMsg.Fail         => TextMessage("failed")
+        case WebSocketMsg.Message(txt) => TextMessage(txt)
+        case WebSocketMsg.Complete     => TextMessage("completed")
+        case WebSocketMsg.Fail         => TextMessage("failed")
       }
 
     Flow.fromSinkAndSource(sink, source)

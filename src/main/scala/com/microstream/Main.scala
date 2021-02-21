@@ -17,30 +17,33 @@ import com.microstream.channel.Channel
 
 import com.typesafe.config.{ConfigFactory, Config}
 import org.flywaydb.core.Flyway
-import com.microstream.channel.ChannelGuardian
+import com.microstream.channel.{ChannelGuardian, SessionGuardian}
 
 object Root extends App {
   lazy val config = ConfigFactory.load
 
   val clusterName = config.getString("clustering.cluster.name")
 
-  ActorSystem[Nothing](RootBehavior(config), clusterName)
+  ActorSystem[Nothing](RootGuardian(config), clusterName)
 }
 
-object RootBehavior {
+object RootGuardian {
   def apply(c: Config) = Behaviors.setup[Nothing] { context =>
-    implicit val as: ActorSystem[Nothing] = context.system
-
     val cluster = Cluster(context.system)
     val roles = cluster.selfMember.roles
 
     context.log.info(s"Starting a new node with $roles role(s)")
 
-    val chanGuardianRef = context.spawn(ChannelGuardian(ChannelNode.Role), "channel-guardian")
+    implicit val as: ActorSystem[Nothing] = context.system
+
+    implicit val cg: ActorRef[ChannelGuardian.Message] =
+      context.spawn(ChannelGuardian(ChannelNode.Role), "channel-guardian")
+    implicit val sg: ActorRef[SessionGuardian.Message] =
+      context.spawn(SessionGuardian(), "session-guardian")
 
     roles collect {
       case ChannelNode.Role => ChannelNode.migrate(c)
-      case HttpNode.Role    => HttpNode.startServer(chanGuardianRef)
+      case HttpNode.Role    => HttpNode.startServer()
     }
 
     if (isSeedNode(c)) {
@@ -62,14 +65,16 @@ object RootBehavior {
 object HttpNode {
   val Role = "http"
 
-  def startServer(
-      chanGuardian: ActorRef[ChannelGuardian.Message]
-  )(implicit system: ActorSystem[_]) = {
+  def startServer()(implicit
+      system: ActorSystem[_],
+      chanGuardian: ActorRef[ChannelGuardian.Message],
+      sessionGuardianRef: ActorRef[SessionGuardian.Message]
+  ) = {
     implicit val ex: ExecutionContextExecutor = system.executionContext
 
     Http()
       .newServerAt("localhost", 8080)
-      .bind(RootController(chanGuardian))
+      .bind(RootController())
       .onComplete {
         case Success(binding) =>
           import binding.localAddress.{getHostString => host, getPort => port}

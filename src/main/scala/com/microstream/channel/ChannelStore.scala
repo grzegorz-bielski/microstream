@@ -22,8 +22,6 @@ object ChannelStore {
 
   type SummaryReceiver = ActorRef[StatusReply[Summary]]
 
-  // trait EnumSer[T] = Enum[T] extends CborSerializable
-
   sealed trait Command extends CborSerializable
   object Command {
     case class Open(name: String, replyTo: SummaryReceiver) extends Command
@@ -40,9 +38,7 @@ object ChannelStore {
     case class Messaged(channelId: Channel.Id, msgId: String, content: String) extends Event
   }
 
-  final case class Summary(state: String) extends CborSerializable
-  // borked serialization for status reply with case class summary
-  // type Summary = String
+  case class Summary(state: String) extends CborSerializable
 
   val successReply = (s: State) => StatusReply.Success(Summary("ok"))
 
@@ -61,7 +57,6 @@ object ChannelStore {
     def onEvent(event: Event): State
   }
 
-  // private object State:
   case class Empty() extends State {
     def onCommand(channelId: Channel.Id, command: Command) = {
       println(("channelId", channelId, "command", command))
