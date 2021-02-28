@@ -20,6 +20,9 @@ import com.fasterxml.jackson.annotation._
 object ChannelStore {
   val EntityKey = EntityTypeKey[Command]("channel-store")
 
+  // arbitrary, ~ 10 X the planned number of nodes in cluster
+  val tags = Vector.tabulate(30)(i => s"channel-tag-$i")
+
   type SummaryReceiver = ActorRef[StatusReply[Summary]]
 
   sealed trait Command extends CborSerializable
@@ -108,10 +111,15 @@ object ChannelStore {
 
   def initSharding(role: String)(implicit system: ActorSystem[_]) =
     ClusterSharding(system) init Entity(ChannelStore.EntityKey) { ctx =>
-      ChannelStore(Channel.Id(ctx.entityId))
+      val tagIndex = math.abs(ctx.entityId.hashCode % tags.size)
+
+      ChannelStore(
+        Channel.Id(ctx.entityId),
+        tags(tagIndex)
+      )
     }.withSettings(ClusterShardingSettings(system).withRole(role))
 
-  def apply(channelId: Channel.Id) =
+  def apply(channelId: Channel.Id, projectionTag: String) =
     EventSourcedBehavior
       .withEnforcedReplies[Command, Event, State](
         persistenceId = PersistenceId(EntityKey.name, channelId),
@@ -125,6 +133,7 @@ object ChannelStore {
           keepNSnapshots = 3
         )
       )
+      .withTagger(_ => Set(projectionTag))
       .onPersistFailure(
         SupervisorStrategy.restartWithBackoff(
           minBackoff = 200.millis,
@@ -133,3 +142,5 @@ object ChannelStore {
         )
       )
 }
+
+// todo: add slick, projections and create read model for channels listing
