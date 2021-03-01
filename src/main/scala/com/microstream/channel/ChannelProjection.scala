@@ -65,3 +65,7 @@ object ChannelProjection {
 
     }
 }
+
+class ChannelRepository {
+  import slick.generated.Tables.Channel
+}
