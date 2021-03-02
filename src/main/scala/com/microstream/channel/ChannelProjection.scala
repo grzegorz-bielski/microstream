@@ -17,55 +17,49 @@ import akka.projection.eventsourced.EventEnvelope
 import akka.Done
 import slick.dbio.DBIO
 import org.slf4j.LoggerFactory
+import scala.concurrent.ExecutionContext
+import com.microstream.channel.ChannelStore.Event.Customized
+import com.microstream.channel.ChannelStore.Event.Opened
 
 object ChannelProjection {
   val name = "ChannelProjection"
 
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def init()(implicit
+  def init(dbConfig: DatabaseConfig[JdbcProfile], repo: ChannelRepository)(implicit
       system: ActorSystem[_]
   ) = {
+    implicit val ec: ExecutionContext = system.executionContext
 
     ShardedDaemonProcess(system).init(
       name,
       ChannelStore.tags.size,
-      index => ProjectionBehavior(createProjectionFor(index, ???)),
+      index => {
+        val tag = ChannelStore.tags(index)
+        val sourceProvider =
+          EventSourcedProvider
+            .eventsByTag[ChannelStore.Event](system, JdbcReadJournal.Identifier, tag)
+
+        ProjectionBehavior(
+          SlickProjection.exactlyOnce(
+            ProjectionId(name, tag),
+            sourceProvider,
+            databaseConfig = dbConfig,
+            handler = () => eventHandler(repo)
+          )
+        )
+      },
       ShardedDaemonProcessSettings(system),
       Some(ProjectionBehavior.Stop)
     )
   }
 
-  private def createProjectionFor[P <: JdbcProfile: ClassTag](
-      tagIndex: Int,
-      dbConfig: DatabaseConfig[P]
-  )(implicit
-      system: ActorSystem[_]
-  ) = {
-    val tag = ChannelStore.tags(tagIndex)
-    val sourceProvider =
-      EventSourcedProvider.eventsByTag[ChannelStore.Event](system, JdbcReadJournal.Identifier, tag)
-
-    SlickProjection.exactlyOnce(
-      ProjectionId(name, tag),
-      sourceProvider,
-      databaseConfig = dbConfig,
-      handler = () => eventHandler
-    )
-  }
-
-  private val eventHandler =
+  private def eventHandler(repo: ChannelRepository)(implicit ec: ExecutionContext) =
     SlickHandler[EventEnvelope[ChannelStore.Event]] { envelope =>
       envelope.event match {
-        case e =>
-          logger.info("New event received {}", e.toString)
-
-          DBIO.successful(Done)
+        case Customized(_, name) => repo.updateChannel(name)
+        case Opened(_, name)     => repo.updateChannel(name)
+        case _                   => DBIO.successful(Done)
       }
-
     }
-}
-
-class ChannelRepository {
-  import slick.generated.Tables.Channel
 }

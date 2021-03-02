@@ -10,6 +10,10 @@ import akka.util.Timeout
 import scala.util.{Try, Success, Failure}
 import akka.actor.typed.receptionist.Receptionist
 import java.util.UUID
+import slick.jdbc.JdbcBackend.Database
+import slick.basic.DatabaseConfig
+import slick.driver.JdbcProfile
+import akka.actor.typed.ActorSystem
 
 object ChannelGuardian {
   sealed trait Message extends CborSerializable
@@ -46,9 +50,17 @@ object ChannelGuardian {
 
   def apply(role: String) = Behaviors.setup[Message] { context =>
     implicit val t: Timeout = Timeout(3.seconds)
+    implicit val system: ActorSystem[_] = context.system
 
-    ChannelStore.initSharding(role)(context.system)
-    val sharding = ClusterSharding(context.system)
+    lazy val dbConfig =
+      DatabaseConfig.forConfig[JdbcProfile]("akka.projection.slick", context.system.settings.config)
+
+    lazy val readRepo = new ChannelRepository(dbConfig)
+
+    lazy val sharding = ClusterSharding(system)
+
+    ChannelStore.initSharding(role)
+    ChannelProjection.init(dbConfig, readRepo)
 
     def storeRef(id: Channel.Id) =
       sharding.entityRefFor(ChannelStore.EntityKey, id)

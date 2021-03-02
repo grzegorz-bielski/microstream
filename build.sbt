@@ -63,13 +63,14 @@ flywayLocations += "db/migration"
 lazy val slickGen = taskKey[Seq[File]]("auto generate slick tables from the existing DB schema")
 
 slickGen := {
-  val dir = sourceManaged.value
+  val dir = (Compile / scalaSource).value
   val classPath = (Compile / dependencyClasspath).value
   val run = (Compile / runner).value.run _
   val log = streams.value.log
   val c = conf.value
 
   val outputDir = dir
+  val lib = "slick"
   val pkg = "generated"
 
   val url = c.getString("slick.db.url")
@@ -78,12 +79,13 @@ slickGen := {
   val driver = c.getString("slick.db.driver")
   val profile = c.getString("slick.profile").init
 
+  // todo: use Options for PKs: https://stackoverflow.com/questions/22275022/customizing-slick-generator
   run(
     "slick.codegen.SourceCodeGenerator",
     classPath.files,
-    Seq(profile, driver, url, outputDir.getPath, "slick" ++ "." ++ pkg, user, password),
+    Seq(profile, driver, url, outputDir.getPath, lib ++ "." ++ pkg, user, password),
     log
   ).failed foreach (sys error _.getMessage)
 
-  Seq(outputDir / pkg / "Tables.scala")
+  Seq(outputDir / lib / pkg / "Tables.scala")
 }
