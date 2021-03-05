@@ -25,20 +25,31 @@ class ChannelController(chanGuardian: ActorRef[ChannelGuardian.Message])(implici
     import akka.http.scaladsl.server.Directives._
     import akka.http.scaladsl.model._
 
-    pathPrefix("channel") {
-      (pathEndOrSingleSlash & post) {
-        entity(as[CreateChannelDto]) { dto =>
-          val req = chanGuardian
-            .askWithStatus(ChannelGuardian.Message.CreateChannel(dto, _))
-            .map(ChannelSummaryDto(_))
-
-          onComplete(req) {
-            case Success(a)                             => complete(StatusCodes.Created -> a)
-            case Failure(StatusReply.ErrorMessage(msg)) => complete(StatusCodes.BadRequest -> msg)
-            case _                                      => complete(StatusCodes.InternalServerError)
-          }
+    pathPrefix("channels") {
+      (pathEndOrSingleSlash & get) {
+        onComplete {
+          chanGuardian
+            .askWithStatus(ChannelGuardian.Message.GetChannels(_))
+            .map(_.map(c => ChannelQueryDto(c.id, c.name, c.createdAt.get)))
+        } {
+          case Success(a)                             => complete(StatusCodes.OK -> a)
+          case Failure(StatusReply.ErrorMessage(msg)) => complete(StatusCodes.BadRequest -> msg)
+          case _                                      => complete(StatusCodes.InternalServerError)
         }
       } ~
+        (pathEndOrSingleSlash & post) {
+          entity(as[CreateChannelDto]) { dto =>
+            onComplete {
+              chanGuardian
+                .askWithStatus(ChannelGuardian.Message.CreateChannel(dto, _))
+                .map(ChannelCreationSummaryDto(_))
+            } {
+              case Success(a)                             => complete(StatusCodes.Created -> a)
+              case Failure(StatusReply.ErrorMessage(msg)) => complete(StatusCodes.BadRequest -> msg)
+              case _                                      => complete(StatusCodes.InternalServerError)
+            }
+          }
+        } ~
         path("connect" / Segment) { id =>
           handleWebSocketMessages {
             Flow.futureFlow {

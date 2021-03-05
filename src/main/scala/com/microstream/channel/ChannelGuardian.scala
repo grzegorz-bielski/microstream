@@ -12,12 +12,16 @@ import akka.actor.typed.receptionist.Receptionist
 import java.util.UUID
 import slick.jdbc.JdbcBackend.Database
 import slick.basic.DatabaseConfig
-import slick.driver.JdbcProfile
 import akka.actor.typed.ActorSystem
+import com.microstream.channel.ChannelGuardian.Message.GetChannels
+import slick.generated.Tables
+import scala.concurrent.ExecutionContext
+import slick.jdbc.PostgresProfile
 
 object ChannelGuardian {
   sealed trait Message extends CborSerializable
   object Message {
+    case class GetChannels(replyTo: ActorRef[StatusReply[Seq[Tables.ChannelRow]]]) extends Message
     case class CreateChannel(dto: CreateChannelDto, replyTo: ActorRef[StatusReply[Channel.Id]])
         extends Message
     case class JoinChannel(
@@ -51,12 +55,15 @@ object ChannelGuardian {
   def apply(role: String) = Behaviors.setup[Message] { context =>
     implicit val t: Timeout = Timeout(3.seconds)
     implicit val system: ActorSystem[_] = context.system
+    implicit val ec: ExecutionContext = system.executionContext
 
     lazy val dbConfig =
-      DatabaseConfig.forConfig[JdbcProfile]("akka.projection.slick", context.system.settings.config)
+      DatabaseConfig
+        .forConfig[PostgresProfile]("readDb.slick", context.system.settings.config)
+    lazy val db =
+      Database.forConfig("readDb.slick", context.system.settings.config)
 
     lazy val readRepo = new ChannelRepository(dbConfig)
-
     lazy val sharding = ClusterSharding(system)
 
     ChannelStore.initSharding(role)
@@ -138,6 +145,21 @@ object ChannelGuardian {
 
     Behaviors.receiveMessage {
       case m: PrivateMessage => handleInternal(m)
+
+      case Message.GetChannels(replyTo) =>
+        db.run(readRepo.getChannels).onComplete {
+          case Failure(e) =>
+            // todo: java.sql.SQLTransientConnectionException: readDb.slick - Connection is not available, request timed out after 30003ms.
+            println("failure hublabubla")
+            println(e)
+            replyTo ! StatusReply.Error(e)
+          case Success(channels) =>
+            println("success")
+            println(channels)
+            replyTo ! StatusReply.Success(channels)
+        }
+
+        Behaviors.same
 
       case Message.CreateChannel(dto, replyTo) =>
         val id = Channel.Id.generate(dto.name)

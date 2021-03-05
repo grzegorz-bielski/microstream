@@ -20,13 +20,14 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.ExecutionContext
 import com.microstream.channel.ChannelStore.Event.Customized
 import com.microstream.channel.ChannelStore.Event.Opened
+import slick.jdbc.PostgresProfile
 
 object ChannelProjection {
   val name = "ChannelProjection"
 
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def init(dbConfig: DatabaseConfig[JdbcProfile], repo: ChannelRepository)(implicit
+  def init(dbConfig: DatabaseConfig[PostgresProfile], repo: ChannelRepository)(implicit
       system: ActorSystem[_]
   ) = {
     implicit val ec: ExecutionContext = system.executionContext

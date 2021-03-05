@@ -21,7 +21,7 @@ object ChannelStore {
   val EntityKey = EntityTypeKey[Command]("channel-store")
 
   // arbitrary, ~ 10 X the planned number of nodes in cluster
-  val tags = Vector.tabulate(30)(i => s"channel-tag-$i")
+  val tags = Vector.tabulate(3)(i => s"channel-tag-$i")
 
   type SummaryReceiver = ActorRef[StatusReply[Summary]]
 
