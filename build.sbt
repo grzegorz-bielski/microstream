@@ -55,7 +55,7 @@ conf := {
 
 enablePlugins(FlywayPlugin)
 
-flywayUrl := conf.value.getString("slick.db.url")
+flywayUrl := conf.value.getString("slick.db.jdbcUrl")
 flywayUser := conf.value.getString("slick.db.user")
 flywayPassword := conf.value.getString("slick.db.password")
 flywayLocations += "db/migration"
@@ -73,7 +73,7 @@ slickGen := {
   val lib = "slick"
   val pkg = "generated"
 
-  val url = c.getString("slick.db.url")
+  val url = c.getString("slick.db.jdbcUrl")
   val user = c.getString("slick.db.user")
   val password = c.getString("slick.db.password")
   val driver = c.getString("slick.db.driver")

@@ -57,14 +57,13 @@ object ChannelGuardian {
     implicit val system: ActorSystem[_] = context.system
     implicit val ec: ExecutionContext = system.executionContext
 
-    lazy val dbConfig =
-      DatabaseConfig
-        .forConfig[PostgresProfile]("readDb.slick", context.system.settings.config)
-    lazy val db =
-      Database.forConfig("readDb.slick", context.system.settings.config)
+    val dbConfig = DatabaseConfig
+      .forConfig[PostgresProfile]("readDb.slick", context.system.settings.config)
 
-    lazy val readRepo = new ChannelRepository(dbConfig)
-    lazy val sharding = ClusterSharding(system)
+    val db = dbConfig.db // todo: release on stopped
+
+    val readRepo = new ChannelRepository(dbConfig)
+    val sharding = ClusterSharding(system)
 
     ChannelStore.initSharding(role)
     ChannelProjection.init(dbConfig, readRepo)

@@ -92,7 +92,7 @@ object ChannelNode {
 
   def migrate(c: Config) = {
     val (url, user, password) = (
-      c.getString("slick.db.url"),
+      c.getString("slick.db.jdbcUrl"),
       c.getString("slick.db.user"),
       c.getString("slick.db.password")
     )
