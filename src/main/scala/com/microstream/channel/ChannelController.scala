@@ -14,12 +14,15 @@ import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 import scala.concurrent.ExecutionContext
 import akka.pattern.StatusReply
 import scala.util.{Success, Failure}
+import org.slf4j.LoggerFactory
 
 class ChannelController(chanGuardian: ActorRef[ChannelGuardian.Message])(implicit
     system: ActorSystem[_]
 ) extends FailFastCirceSupport {
   implicit lazy val ec: ExecutionContext = system.executionContext
   implicit lazy val t: Timeout = Timeout(3.seconds)
+
+  val logger = LoggerFactory.getLogger(getClass)
 
   lazy val route = {
     import akka.http.scaladsl.server.Directives._
@@ -30,11 +33,13 @@ class ChannelController(chanGuardian: ActorRef[ChannelGuardian.Message])(implici
         onComplete {
           chanGuardian
             .askWithStatus(ChannelGuardian.Message.GetChannels(_))
-            .map(_.map(c => ChannelQueryDto(c.id, c.name, c.createdAt.get)))
+            .map(_.map(c => ChannelQueryDto(c.id, c.name, c.createdAt)))
         } {
           case Success(a)                             => complete(StatusCodes.OK -> a)
           case Failure(StatusReply.ErrorMessage(msg)) => complete(StatusCodes.BadRequest -> msg)
-          case _                                      => complete(StatusCodes.InternalServerError)
+          case e =>
+            logger.info("Unexpected Error {} at `channels` GET", e.toString)
+            complete(StatusCodes.InternalServerError)
         }
       } ~
         (pathEndOrSingleSlash & post) {
@@ -46,7 +51,9 @@ class ChannelController(chanGuardian: ActorRef[ChannelGuardian.Message])(implici
             } {
               case Success(a)                             => complete(StatusCodes.Created -> a)
               case Failure(StatusReply.ErrorMessage(msg)) => complete(StatusCodes.BadRequest -> msg)
-              case _                                      => complete(StatusCodes.InternalServerError)
+              case e =>
+                logger.info("Unexpected Error {} at `channels` POST", e.toString)
+                complete(StatusCodes.InternalServerError)
             }
           }
         } ~

@@ -14,6 +14,7 @@ object Channel {
 
   def apply(storeRef: => EntityRef[ChannelStore.Command]) =
     Behaviors.setup[Message] { context =>
+      // todo: supervise sessions, remove from state on failure
       def connected(sessions: Sessions): Behavior[Message] =
         Behaviors.receiveMessage {
           case Message.Join(session) =>

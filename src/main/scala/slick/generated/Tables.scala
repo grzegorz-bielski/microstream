@@ -63,24 +63,24 @@ trait Tables {
    *  @param id Database column id SqlType(int8), AutoInc, PrimaryKey
    *  @param name Database column name SqlType(varchar), Length(255,true)
    *  @param createdAt Database column created_at SqlType(timestamptz) */
-  case class ChannelRow(id: Long, name: String, createdAt: Option[java.sql.Timestamp])
+  case class ChannelRow(id: Long, name: String, createdAt: java.sql.Timestamp)
   /** GetResult implicit for fetching ChannelRow objects using plain SQL queries */
-  implicit def GetResultChannelRow(implicit e0: GR[Long], e1: GR[String], e2: GR[Option[java.sql.Timestamp]]): GR[ChannelRow] = GR{
+  implicit def GetResultChannelRow(implicit e0: GR[Long], e1: GR[String], e2: GR[java.sql.Timestamp]): GR[ChannelRow] = GR{
     prs => import prs._
-    ChannelRow.tupled((<<[Long], <<[String], <<?[java.sql.Timestamp]))
+    ChannelRow.tupled((<<[Long], <<[String], <<[java.sql.Timestamp]))
   }
   /** Table description of table channel. Objects of this class serve as prototypes for rows in queries. */
   class Channel(_tableTag: Tag) extends profile.api.Table[ChannelRow](_tableTag, "channel") {
     def * = (id, name, createdAt) <> (ChannelRow.tupled, ChannelRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = ((Rep.Some(id), Rep.Some(name), createdAt)).shaped.<>({r=>import r._; _1.map(_=> ChannelRow.tupled((_1.get, _2.get, _3)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = ((Rep.Some(id), Rep.Some(name), Rep.Some(createdAt))).shaped.<>({r=>import r._; _1.map(_=> ChannelRow.tupled((_1.get, _2.get, _3.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(int8), AutoInc, PrimaryKey */
     val id: Rep[Long] = column[Long]("id", O.AutoInc, O.PrimaryKey)
     /** Database column name SqlType(varchar), Length(255,true) */
     val name: Rep[String] = column[String]("name", O.Length(255,varying=true))
     /** Database column created_at SqlType(timestamptz) */
-    val createdAt: Rep[Option[java.sql.Timestamp]] = column[Option[java.sql.Timestamp]]("created_at")
+    val createdAt: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
 
     /** Uniqueness Index over (name) (database name channel_name_idx) */
     val index1 = index("channel_name_idx", name, unique=true)

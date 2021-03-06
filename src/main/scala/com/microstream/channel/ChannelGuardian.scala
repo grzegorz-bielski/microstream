@@ -17,6 +17,9 @@ import com.microstream.channel.ChannelGuardian.Message.GetChannels
 import slick.generated.Tables
 import scala.concurrent.ExecutionContext
 import slick.jdbc.PostgresProfile
+import akka.actor.TypedActor
+import akka.actor.typed.PostStop
+import akka.actor.typed.Terminated
 
 object ChannelGuardian {
   sealed trait Message extends CborSerializable
@@ -45,7 +48,7 @@ object ChannelGuardian {
 
     case class ChannelJoiningSuccess(id: Channel.Id, replyTo: ActorRef[Session.Message])
         extends PrivateMessage
-    case class ChannelJoiningFailure(id: Channel.Id) extends PrivateMessage
+    case class ChannelJoiningFailure(id: Channel.Id, msg: String) extends PrivateMessage
     case class GetRegisteredChannel(
         listing: Receptionist.Listing,
         msg: Message.JoinChannel
@@ -57,16 +60,19 @@ object ChannelGuardian {
     implicit val system: ActorSystem[_] = context.system
     implicit val ec: ExecutionContext = system.executionContext
 
-    val dbConfig = DatabaseConfig
+    val readDbConfig = DatabaseConfig
       .forConfig[PostgresProfile]("readDb.slick", context.system.settings.config)
 
-    val db = dbConfig.db // todo: release on stopped
+    val projectionDbConfig = DatabaseConfig
+      .forConfig[PostgresProfile]("projectionDb.slick", context.system.settings.config)
 
-    val readRepo = new ChannelRepository(dbConfig)
+    val readDb = readDbConfig.db // todo: release on stopped
+
+    val readRepo = new ChannelRepository(readDbConfig)
     val sharding = ClusterSharding(system)
 
     ChannelStore.initSharding(role)
-    ChannelProjection.init(dbConfig, readRepo)
+    ChannelProjection.init(projectionDbConfig, readRepo)
 
     def storeRef(id: Channel.Id) =
       sharding.entityRefFor(ChannelStore.EntityKey, id)
@@ -125,16 +131,17 @@ object ChannelGuardian {
 
                 PrivateMessage.ChannelJoiningSuccess(id, session)
 
-              // channel store is not opened
-              case Success(false) => PrivateMessage.ChannelJoiningFailure(id)
-              case Failure(e)     => PrivateMessage.ChannelJoiningFailure(id)
+              case Success(false) => // closed for opened channels>??
+                PrivateMessage.ChannelJoiningFailure(id, "Channel store is not opened")
+              case Failure(e) =>
+                PrivateMessage.ChannelJoiningFailure(id, s"Unknown error: ${e.toString}")
             }
         }
 
         Behaviors.same
 
-      case PrivateMessage.ChannelJoiningFailure(id) =>
-        context.log.error(s"Joining channel $id has failed")
+      case PrivateMessage.ChannelJoiningFailure(id, msg) =>
+        context.log.error(s"Joining channel $id has failed. $msg")
         Behaviors.same
 
       case PrivateMessage.ChannelJoiningSuccess(id, session) =>
@@ -142,43 +149,50 @@ object ChannelGuardian {
         Behaviors.same
     }
 
-    Behaviors.receiveMessage {
-      case m: PrivateMessage => handleInternal(m)
+    Behaviors
+      .receiveMessage[Message] {
+        case m: PrivateMessage => handleInternal(m)
 
-      case Message.GetChannels(replyTo) =>
-        db.run(readRepo.getChannels).onComplete {
-          case Failure(e) =>
-            // todo: java.sql.SQLTransientConnectionException: readDb.slick - Connection is not available, request timed out after 30003ms.
-            println("failure hublabubla")
-            println(e)
-            replyTo ! StatusReply.Error(e)
-          case Success(channels) =>
-            println("success")
-            println(channels)
-            replyTo ! StatusReply.Success(channels)
-        }
+        case Message.GetChannels(replyTo) =>
+          readDb.run(readRepo.getChannels).onComplete {
+            case Failure(e) =>
+              // todo: java.sql.SQLTransientConnectionException: readDb.slick - Connection is not available, request timed out after 30003ms.
+              println("failure hublabubla")
+              println(e)
+              replyTo ! StatusReply.Error(e)
+            case Success(channels) =>
+              println("success")
+              println(channels)
+              replyTo ! StatusReply.Success(channels)
+          }
+
+          Behaviors.same
+
+        case Message.CreateChannel(dto, replyTo) =>
+          val id = Channel.Id.generate(dto.name)
+
+          context.askWithStatus(storeRef(id), ChannelStore.Command.Open(dto.name, _)) {
+            case Success(_) => PrivateMessage.ChannelCreationSuccess(id, replyTo)
+            case Failure(e) => PrivateMessage.ChannelCreationFailure(e, id, replyTo)
+          }
+
+          Behaviors.same
+
+        case msg: Message.JoinChannel =>
+          val adapter =
+            context.messageAdapter[Receptionist.Listing](
+              PrivateMessage.GetRegisteredChannel(_, msg)
+            )
+
+          context.system.receptionist ! Receptionist.Find(Channel.Key(msg.channelId), adapter)
+
+          Behaviors.same
+      }
+      .receiveSignal { case (ctx, PostStop) =>
+        ctx.log.warn("ChannelGuardian has been stopped")
+        readDb.close()
 
         Behaviors.same
-
-      case Message.CreateChannel(dto, replyTo) =>
-        val id = Channel.Id.generate(dto.name)
-
-        context.askWithStatus(storeRef(id), ChannelStore.Command.Open(dto.name, _)) {
-          case Success(_) => PrivateMessage.ChannelCreationSuccess(id, replyTo)
-          case Failure(e) => PrivateMessage.ChannelCreationFailure(e, id, replyTo)
-        }
-
-        Behaviors.same
-
-      case msg: Message.JoinChannel =>
-        val adapter =
-          context.messageAdapter[Receptionist.Listing](
-            PrivateMessage.GetRegisteredChannel(_, msg)
-          )
-
-        context.system.receptionist ! Receptionist.Find(Channel.Key(msg.channelId), adapter)
-
-        Behaviors.same
-    }
+      }
   }
 }

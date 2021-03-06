@@ -56,7 +56,6 @@ object ChannelStore {
 
   case class Empty() extends State {
     def onCommand(channelId: Channel.Id, command: Command) = {
-      println(("channelId", channelId, "command", command))
       command match {
         case Command.IsOpen(replyTo) =>
           Effect.reply(replyTo)(StatusReply.Success(false))
@@ -73,7 +72,6 @@ object ChannelStore {
 
     }
     def onEvent(event: Event) = {
-      println(("event", event))
       event match {
         case Event.Opened(_, name) => Open(name, LazyList.empty)
         case _                     => this
@@ -84,6 +82,7 @@ object ChannelStore {
 
   case class Open(name: String, msgs: LazyList[Event.Messaged]) extends State {
     def onCommand(channelId: Channel.Id, command: Command) = command match {
+      // todo: move to read model
       case Command.IsOpen(replyTo) =>
         Effect.reply(replyTo)(StatusReply.Success(true))
 
