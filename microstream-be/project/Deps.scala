@@ -25,6 +25,7 @@ object Deps {
   // http
   val akkaHttp = "com.typesafe.akka" %% "akka-http" % akkaHttpVersion
   val akkaCirce = "de.heikoseeberger" %% "akka-http-circe" % "1.35.3"
+  val akkaHttpCors = "ch.megard" %% "akka-http-cors" % "1.1.1"
 
   // persistance
   val akkaPersistenceTyped = "com.typesafe.akka" %% "akka-persistence-typed" % akkaVersion

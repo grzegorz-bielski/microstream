@@ -154,17 +154,10 @@ object ChannelGuardian {
         case m: PrivateMessage => handleInternal(m)
 
         case Message.GetChannels(replyTo) =>
-          // todo: move this up
+          // todo: move general CRUD up a layer / create orthogonal service
           readDb.run(readRepo.getChannels).onComplete {
-            case Failure(e) =>
-              // todo: java.sql.SQLTransientConnectionException: readDb.slick - Connection is not available, request timed out after 30003ms.
-              println("failure hublabubla")
-              println(e)
-              replyTo ! StatusReply.Error(e)
-            case Success(channels) =>
-              println("success")
-              println(channels)
-              replyTo ! StatusReply.Success(channels)
+            case Failure(e)        => replyTo ! StatusReply.Error(e)
+            case Success(channels) => replyTo ! StatusReply.Success(channels)
           }
 
           Behaviors.same

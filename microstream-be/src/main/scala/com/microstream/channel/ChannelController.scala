@@ -25,10 +25,11 @@ class ChannelController(chanGuardian: ActorRef[ChannelGuardian.Message])(implici
   val logger = LoggerFactory.getLogger(getClass)
 
   lazy val route = {
+    import ch.megard.akka.http.cors.scaladsl.CorsDirectives._
     import akka.http.scaladsl.server.Directives._
     import akka.http.scaladsl.model._
 
-    pathPrefix("channels") {
+    (cors() & pathPrefix("channels")) {
       (pathEndOrSingleSlash & get) {
         onComplete {
           chanGuardian

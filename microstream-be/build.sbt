@@ -9,7 +9,6 @@ lazy val circeVersion = "0.14.0-M3"
 lazy val akkaProjectionVersion = "1.1.0"
 
 Compile / run / fork := true
-// Compile / sourceGenerators <+=
 
 lazy val root = (project in file("."))
   .settings(
@@ -40,9 +39,10 @@ lazy val root = (project in file("."))
       Deps.slick光,
       Deps.slickCodeGen,
       Deps.flyway,
-      Deps.postgresDriver
-    ),
-    (Compile / sourceGenerators) += slickGen
+      Deps.postgresDriver,
+      Deps.akkaHttpCors
+    )
+    // (Compile / sourceGenerators) += slickGen
   )
 
 lazy val conf = settingKey[Config]("base app config")
