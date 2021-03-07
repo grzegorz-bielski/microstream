@@ -154,6 +154,7 @@ object ChannelGuardian {
         case m: PrivateMessage => handleInternal(m)
 
         case Message.GetChannels(replyTo) =>
+          // todo: move this up
           readDb.run(readRepo.getChannels).onComplete {
             case Failure(e) =>
               // todo: java.sql.SQLTransientConnectionException: readDb.slick - Connection is not available, request timed out after 30003ms.
