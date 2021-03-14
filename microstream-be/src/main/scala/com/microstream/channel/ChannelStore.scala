@@ -16,7 +16,9 @@ import akka.persistence.typed.PersistenceId
 import akka.pattern.StatusReply
 import com.fasterxml.jackson.annotation._
 
-// a persistent sharded store for a given channel
+/** `ChannelStore` is responsible for managing persistent state
+  *  of a `Channel` actor with the same `channelId`
+  */
 object ChannelStore {
   val EntityKey = EntityTypeKey[Command]("channel-store")
 
@@ -141,5 +143,3 @@ object ChannelStore {
         )
       )
 }
-
-// todo: add slick, projections and create read model for channels listing

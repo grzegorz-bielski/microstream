@@ -2,22 +2,17 @@ package com.microstream
 
 import akka.actor.typed.ActorRef
 import akka.actor.typed.ActorSystem
-import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.SpawnProtocol
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.HttpEntity
-import akka.http.scaladsl.model.ContentTypes
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Success, Failure}
 import akka.actor.typed.scaladsl.ActorContext
 import akka.cluster.typed.Cluster
-import com.microstream.channel.ChannelStore
-import com.microstream.channel.Channel
-
 import com.typesafe.config.{ConfigFactory, Config}
 import org.flywaydb.core.Flyway
 import com.microstream.channel.ChannelGuardian
+import akka.actor.typed.receptionist.Receptionist
+import akka.actor.typed.scaladsl.Routers
 
 object Root extends App {
   lazy val config = ConfigFactory.load
@@ -28,25 +23,15 @@ object Root extends App {
 }
 
 object RootGuardian {
-  def apply(c: Config) = Behaviors.setup[Nothing] { context =>
+  def apply(c: Config) = Behaviors.setup[Nothing] { implicit context =>
     val cluster = Cluster(context.system)
     val roles = cluster.selfMember.roles
 
     context.log.info(s"Starting a new node with $roles role(s)")
 
-    implicit val as: ActorSystem[Nothing] = context.system
-
-    implicit val cg: ActorRef[ChannelGuardian.Message] =
-      context.spawn(ChannelGuardian(ChannelNode.Role), "channel-guardian")
-
-    roles collect {
-      case ChannelNode.Role => ChannelNode.migrate(c)
-      case HttpNode.Role    => HttpNode.startServer()
-    }
-
-    if (isSeedNode(c)) {
-      context.spawn(ClusterObserver(), "cluster-observer")
-    }
+    if (roles.exists(_ == ChannelNode.Role)) ChannelNode(c)
+    if (roles.exists(_ == HttpNode.Role)) HttpNode()
+    if (isSeedNode(c)) context.spawn(ClusterObserver(), "cluster-observer")
 
     Behaviors.empty
   }
@@ -60,14 +45,20 @@ object RootGuardian {
 
 }
 
+/** `HttpNode` is responsible for handling HTTP requests and WS connections through the `Session` actor.
+  * Actual work is delegated to the `ChannelGuardian` actors through cluster aware routers in a round-robin fashion
+  */
 object HttpNode {
   val Role = "http"
 
-  def startServer()(implicit
-      system: ActorSystem[_],
-      chanGuardian: ActorRef[ChannelGuardian.Message]
-  ) = {
+  def apply()(implicit ctx: ActorContext[_]) = {
+    implicit val system: ActorSystem[_] = ctx.system
     implicit val ex: ExecutionContextExecutor = system.executionContext
+    implicit val r: ActorRef[ChannelGuardian.Message] =
+      ctx.spawn(
+        Routers.group(ChannelGuardian.Key).withRoundRobinRouting,
+        "channel-guardian-group"
+      )
 
     Http()
       .newServerAt("localhost", 8080)
@@ -87,10 +78,21 @@ object HttpNode {
   }
 }
 
+/** `ChannelNode` is responsible for managing the state of `Channel` actors through `ChannelGuardian`(s)
+  * which are registered through receptionist and available in the whole cluster
+  */
 object ChannelNode {
   val Role = "channel"
 
-  def migrate(c: Config) = {
+  def apply(c: Config)(implicit ctx: ActorContext[_]) = {
+    ChannelNode.migrate(c)
+
+    val channelGuardian = ctx.spawn(ChannelGuardian(Role), "channel-guardian")
+    ctx.system.receptionist ! Receptionist.Register(ChannelGuardian.Key, channelGuardian)
+  }
+
+  private def migrate(c: Config) = {
+    // todo: migrate to pureconfig
     val (url, user, password) = (
       c.getString("slick.db.jdbcUrl"),
       c.getString("slick.db.user"),

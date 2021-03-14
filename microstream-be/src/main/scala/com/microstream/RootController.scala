@@ -4,8 +4,8 @@ import akka.actor.typed.ActorSystem
 import akka.actor.typed.SpawnProtocol
 import akka.actor.typed.scaladsl.ActorContext
 import com.microstream.channel.ChannelController
-import akka.actor.typed.ActorRef
 import com.microstream.channel.ChannelGuardian
+import akka.actor.typed.ActorRef
 
 object RootController {
   def apply()(implicit
