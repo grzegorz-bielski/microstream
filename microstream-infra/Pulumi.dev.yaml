@@ -1,2 +1,2 @@
 config:
-  microstream-infra:isMinikube: "true"
+  microstream-infra:isLocal: "true"

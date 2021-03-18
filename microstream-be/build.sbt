@@ -45,6 +45,8 @@ lazy val root = (project in file("."))
     // (Compile / sourceGenerators) += slickGen
   )
 
+// DB tasks
+
 lazy val conf = settingKey[Config]("base app config")
 
 conf := {
@@ -89,3 +91,5 @@ slickGen := {
 
   Seq(outputDir / lib / pkg / "Tables.scala")
 }
+
+///

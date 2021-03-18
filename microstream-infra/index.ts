@@ -1,10 +1,10 @@
 import * as pulumi from "@pulumi/pulumi"
 import * as k8s from "@pulumi/kubernetes"
 
-// Minikube does not implement services of type `LoadBalancer`; require the user to specify if we're
-// running on minikube, and if so, create only services of type ClusterIP.
 const config = new pulumi.Config()
-const isMinikube = config.requireBoolean("isMinikube") // or Docker Desktop k8 cluster
+
+// Minikube and Docker desktop does not implement services of type `LoadBalancer`;
+const isLocal = config.requireBoolean("isLocal")
 
 // for local run in minikube / docker desktop
 // kubectl get service --name--> kubectl port-forward service/<name> 8080:80
@@ -26,14 +26,14 @@ const deployment = new k8s.apps.v1.Deployment(appName, {
 const frontend = new k8s.core.v1.Service(appName, {
   metadata: { labels: deployment.spec.template.metadata.labels },
   spec: {
-    type: isMinikube ? "ClusterIP" : "LoadBalancer",
+    type: isLocal ? "ClusterIP" : "LoadBalancer",
     ports: [{ port: 80, targetPort: 80, protocol: "TCP" }],
     selector: appLabels,
   },
 })
 
 // When "done", this will print the public IP.
-export const ip = isMinikube
+export const ip = isLocal
   ? frontend.spec.clusterIP
   : frontend.status.loadBalancer.apply(
       (lb) => lb.ingress[0]?.ip ?? lb.ingress[0]?.hostname
