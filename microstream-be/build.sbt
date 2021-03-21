@@ -1,19 +1,18 @@
-ThisBuild / scalaVersion := "2.13.4"
-
 import com.typesafe.config.{ConfigFactory, Config}
 
-lazy val akkaVersion = "2.6.12"
-lazy val akkaHttpVersion = "10.2.3"
-lazy val slickVersion = "3.3.3"
-lazy val circeVersion = "0.14.0-M3"
-lazy val akkaProjectionVersion = "1.1.0"
+enablePlugins(
+  FlywayPlugin,
+  JavaAppPackaging,
+  AshScriptPlugin
+)
+
+ThisBuild / scalaVersion := "2.13.4"
+ThisBuild / version := "0.0.1"
 
 Compile / run / fork := true
 
 lazy val root = (project in file("."))
   .settings(
-    name := "microstream",
-    version := "1.0",
     libraryDependencies ++= Seq(
       Deps.akkaActorTyped,
       Deps.akkaActorTypedTestkit,
@@ -42,6 +41,7 @@ lazy val root = (project in file("."))
       Deps.postgresDriver,
       Deps.akkaHttpCors
     )
+    // uncomment to code-gen on `compile`
     // (Compile / sourceGenerators) += slickGen
   )
 
@@ -54,8 +54,6 @@ conf := {
   val appConfig = ConfigFactory.parseFile(resourceDir / "base.conf")
   ConfigFactory.load(appConfig)
 }
-
-enablePlugins(FlywayPlugin)
 
 flywayUrl := conf.value.getString("slick.db.jdbcUrl")
 flywayUser := conf.value.getString("slick.db.user")
@@ -92,4 +90,12 @@ slickGen := {
   Seq(outputDir / lib / pkg / "Tables.scala")
 }
 
-///
+/// packaging
+packageName := "microstream"
+dockerBaseImage := "openjdk:8-jre-alpine"
+dockerExposedPorts ++= Seq(
+  // todo: take it from config instead
+  2552, // clustering
+  8080, // http,
+  5432 // db
+)
