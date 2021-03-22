@@ -30,17 +30,17 @@ object RootGuardian {
     context.log.info(s"Starting a new node with $roles role(s)")
 
     if (roles.exists(_ == ChannelNode.Role)) ChannelNode(c)
-    if (roles.exists(_ == HttpNode.Role)) HttpNode()
+    if (roles.exists(_ == HttpNode.Role)) HttpNode(c)
     if (isSeedNode(c)) context.spawn(ClusterObserver(), "cluster-observer")
 
     Behaviors.empty
   }
 
   def isSeedNode(c: Config) = {
-    val clusterPort = c.getInt("clustering.port")
-    val defaultPort = c.getInt("clustering.defaultPort")
+    val seedId = c.getString("clustering.seed-ip")
+    val ip = c.getString("clustering.ip")
 
-    clusterPort == defaultPort
+    seedId == ip
   }
 
 }
@@ -51,7 +51,7 @@ object RootGuardian {
 object HttpNode {
   val Role = "http"
 
-  def apply()(implicit ctx: ActorContext[_]) = {
+  def apply(c: Config)(implicit ctx: ActorContext[_]) = {
     implicit val system: ActorSystem[_] = ctx.system
     implicit val ex: ExecutionContextExecutor = system.executionContext
     implicit val r: ActorRef[ChannelGuardian.Message] =
@@ -61,7 +61,7 @@ object HttpNode {
       )
 
     Http()
-      .newServerAt("localhost", 8080)
+      .newServerAt("0.0.0.0", 8080)
       .bind(RootController())
       .onComplete {
         case Success(binding) =>
