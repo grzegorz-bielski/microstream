@@ -1,13 +1,12 @@
 import sbt._
 
-// import Deps._
-
 object Deps {
-  lazy val akkaVersion = "2.6.12"
-  lazy val akkaHttpVersion = "10.2.3"
-  lazy val slickVersion = "3.3.3"
-  lazy val circeVersion = "0.14.0-M3"
-  lazy val akkaProjectionVersion = "1.1.0"
+  val akkaVersion = "2.6.12"
+  val akkaHttpVersion = "10.2.3"
+  val slickVersion = "3.3.3"
+  val circeVersion = "0.14.0-M3"
+  val akkaProjectionVersion = "1.1.0"
+  val akkaManagementVersion = "1.0.10"
 
   // core
   val akkaActorTyped = "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion
@@ -21,6 +20,9 @@ object Deps {
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   val circeParser = "io.circe" %% "circe-parser" % circeVersion
   val typesafeConfig = "com.typesafe" % "config" % "1.4.1"
+  val akkaClusterBootstrap = "com.lightbend.akka.management" %% "akka-management-cluster-bootstrap" % akkaManagementVersion
+  val akkaClusterHttp = "com.lightbend.akka.management" %% "akka-management-cluster-http" % akkaManagementVersion
+  val akkaDiscoveryK8s = "com.lightbend.akka.discovery" %% "akka-discovery-kubernetes-api" % akkaManagementVersion
 
   // http
   val akkaHttp = "com.typesafe.akka" %% "akka-http" % akkaHttpVersion

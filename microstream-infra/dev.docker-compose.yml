@@ -39,4 +39,9 @@ services:
       CLUSTER_PORT: 1601
       CLUSTER_IP: microstream-http
       SEED_PORT_1600_TCP_ADDR: microstream-channel
-  
+
+  frontend:
+    env_file: .dev_env 
+    image: microstream-fe
+    ports:
+      - 3000:3000
