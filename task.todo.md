@@ -2,12 +2,18 @@
   ~~- research scala packaging~~
   ~~- setup Docker build setup with `sbt-native-packager` and `sbt-docker`~~
   ~~- run with `docker-compose`: https://doc.akka.io/docs/akka/current/remoting-artery.html#remote-configuration-nat-artery~~
-  - run with `k8s` and `cluster-bootstrap`: https://doc.akka.io/docs/akka/current/additional/deploying.html#cluster-bootstrap | https://doc.akka.io/docs/akka-management/current/kubernetes-deployment/forming-a-cluster.html
+  - run with `k8s` and `cluster-bootstrap`: https://doc.akka.io/docs/akka/current/additional/deploying.html#cluster-bootstrap 
+    https://doc.akka.io/docs/akka-management/current/kubernetes-deployment/forming-a-cluster.html 
+    https://github.com/pulumi/examples/blob/master/aws-ts-k8s-mern-voting-app/index.ts
+    https://github.com/michael-read/akka-typed-distributed-state-blog/blob/master/K8s/endpoints/endpoint-deployment.yaml
+    https://www.lightbend.com/blog/how-to-distribute-application-state-with-akka-cluster-part-3-kubernetes-monitoring
+
 - local k8s deployment:
   - create all resources for local deployment
   - generate yamls https://www.pulumi.com/blog/kubernetes-yaml-generation/ for skaffold https://skaffold.dev/docs/quickstart/
   - ???
 - aws k8s deployment
+  - certs: https://github.com/pulumi/cert-manager-examples
 - CI / CD
 
 ### resources
@@ -30,3 +36,6 @@ https://docs.oracle.com/javase/tutorial/essential/environment/index.html
 // devops / gitops
 https://itnext.io/how-to-build-a-gitops-pipeline-on-a-stack-of-aws-services-63f7670b5f95
 https://www.youtube.com/watch?v=IPLj9DqEVkg
+
+// k8s
+https://luminousmen.com/post/kubernetes-101
