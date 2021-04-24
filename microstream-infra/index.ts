@@ -115,11 +115,54 @@ export const appNamespaceName = appNamespace.metadata.name
 //   app: "microstream",
 // }
 
+// const channelNodeServiceAccount = new k8s.core.v1.ServiceAccount(
+//   "microstream-channel-node-service-account",
+//   {
+//     metadata: {
+//       namespace: appNamespaceName,
+//     },
+//   }
+// )
+
+// const channelNodeRole = new k8s.rbac.v1.Role("microstream-channel-node-role", {
+//   metadata: {
+//     namespace: appNamespaceName,
+//   },
+//   rules: [
+//     {
+//       apiGroups: [""],
+//       resources: ["pods"],
+//       verbs: ["get", "watch", "list"],
+//     },
+//   ],
+// })
+
+// const channelNodeRoleBinding = new k8s.rbac.v1.RoleBinding(
+//   "microstream-channel-node-role-binding",
+//   {
+//     metadata: {
+//       namespace: appNamespaceName,
+//     },
+//     roleRef: {
+//       apiGroup: "rbac.authorization.k8s.io",
+//       kind: channelNodeRole.kind,
+//       name: channelNodeRole.metadata.name,
+//     },
+//     subjects: [
+//       {
+//         kind: channelNodeServiceAccount.kind,
+//         name: channelNodeServiceAccount.metadata.name,
+//       },
+//     ],
+//   }
+// )
+
 // const channelNodeService = new k8s.core.v1.Service(
 //   "microstream-channel-node-service",
 //   {
 //     metadata: {
 //       namespace: appNamespaceName,
+//       labels: channelNodeAppLabels,
 //     },
 //     spec: {
 //       selector: channelNodeAppLabels,
@@ -160,8 +203,8 @@ export const appNamespaceName = appNamespace.metadata.name
 //           containers: [
 //             {
 //               name: channelNodeAppName,
-//               image: "microstream:0.0.1",
-//               imagePullPolicy: isLocal ? "Never" : "Always",
+//               image: "localhost:5000/microstream-be:0.0.1",
+//               // imagePullPolicy: isLocal ? "Never" : "Always",
 //               // image:  awsx.ecr.buildAndPushImage("database-side-service", "./databaseside").image(), :thinking
 //               env:
 //                 // todo: use config map
@@ -222,126 +265,169 @@ export const appNamespaceName = appNamespace.metadata.name
 
 ///
 
-// const httpNodeAppName = "microstream-http-node"
-// const httpNodeAppLabels = {
-//   component: httpNodeAppName,
-//   app: "microstream",
-// }
+const httpNodeAppName = "microstream-http-node"
+const httpNodeAppLabels = {
+  component: httpNodeAppName,
+  app: "microstream",
+}
 
-// const httpNodeService = new k8s.core.v1.Service(
-//   "microstream-http-node-service",
-//   {
-//     metadata: {
-//       namespace: appNamespaceName,
-//     },
-//     spec: {
-//       selector: httpNodeAppLabels,
-//       ports: [
-//         {
-//           name: "akka-mgmt",
-//           port: 8558,
-//           targetPort: "akka-mgmt",
-//           protocol: "TCP",
-//         },
-//         {
-//           name: "akka-remoting",
-//           port: 2552,
-//           targetPort: "akka-remoting",
-//           protocol: "TCP",
-//         },
-//         {
-//           name: "app-http",
-//           port: 8080,
-//           targetPort: "app-http",
-//           protocol: "TCP",
-//         },
-//       ],
-//     },
-//   }
-// )
+const httpNodeServiceAccount = new k8s.core.v1.ServiceAccount(
+  "microstream-http-node-service-account",
+  {
+    metadata: {
+      namespace: appNamespaceName,
+    },
+  }
+)
 
-// const httpNodeDeployment = new k8s.apps.v1.Deployment(
-//   "microstream-http-node-deployment",
-//   {
-//     metadata: {
-//       namespace: appNamespaceName,
-//       labels: httpNodeAppLabels,
-//     },
-//     spec: {
-//       replicas: 1,
-//       selector: {
-//         matchLabels: httpNodeAppLabels,
-//       },
-//       template: {
-//         metadata: { labels: httpNodeAppLabels },
-//         spec: {
-//           containers: [
-//             {
-//               name: httpNodeAppName,
-//               image: "microstream:0.0.1",
-//               imagePullPolicy: isLocal ? "Never" : "Always",
-//               // image:  awsx.ecr.buildAndPushImage("database-side-service", "./databaseside").image(), :thinking
-//               env:
-//                 // todo: use config map
-//                 [
-//                   {
-//                     name: "JAVA_OPTS",
-//                     value: "-Dconfig.resource=channel-node-k8s.conf",
-//                   },
-//                   {
-//                     name: "DB_HOST",
-//                     value: dbService.metadata.name,
-//                   },
-//                 ],
-//               readinessProbe: {
-//                 httpGet: {
-//                   path: "/ready",
-//                   port: "akka-mgmt",
-//                 },
-//                 initialDelaySeconds: 10,
-//                 periodSeconds: 5,
-//               },
-//               livenessProbe: {
-//                 httpGet: {
-//                   path: "/alive",
-//                   port: "akka-mgmt",
-//                 },
-//                 initialDelaySeconds: 90,
-//                 periodSeconds: 30,
-//               },
-//               ports: [
-//                 {
-//                   name: "akka-mgmt",
-//                   containerPort: 8558,
-//                   protocol: "TCP",
-//                 },
-//                 {
-//                   name: "akka-remoting",
-//                   containerPort: 2552,
-//                   protocol: "TCP",
-//                 },
-//                 {
-//                   name: "app-http",
-//                   containerPort: 8080,
-//                   protocol: "TCP",
-//                 },
-//               ],
-//               resources: {
-//                 limits: {
-//                   memory: "1024Mi",
-//                 },
-//                 requests: {
-//                   cpu: "2",
-//                   memory: "1024Mi",
-//                 },
-//               },
-//             },
-//           ],
-//         },
-//       },
-//     },
-//   }
-// )
+const httpNodeRole = new k8s.rbac.v1.Role("microstream-http-node-role", {
+  metadata: {
+    namespace: appNamespaceName,
+  },
+  rules: [
+    {
+      apiGroups: [""],
+      resources: ["pods"],
+      verbs: ["get", "watch", "list"],
+    },
+  ],
+})
+
+const httpNodeRoleBinding = new k8s.rbac.v1.RoleBinding(
+  "microstream-http-node-role-binding",
+  {
+    metadata: {
+      namespace: appNamespaceName,
+    },
+    roleRef: {
+      apiGroup: "rbac.authorization.k8s.io",
+      kind: httpNodeRole.kind,
+      name: httpNodeRole.metadata.name,
+    },
+    subjects: [
+      {
+        kind: httpNodeServiceAccount.kind,
+        name: httpNodeServiceAccount.metadata.name,
+      },
+    ],
+  }
+)
+
+const httpNodeService = new k8s.core.v1.Service(
+  "microstream-http-node-service",
+  {
+    metadata: {
+      namespace: appNamespaceName,
+      labels: httpNodeAppLabels,
+    },
+    spec: {
+      selector: httpNodeAppLabels,
+      ports: [
+        {
+          name: "akka-mgmt",
+          port: 8558,
+          targetPort: "akka-mgmt",
+          protocol: "TCP",
+        },
+        {
+          name: "akka-remoting",
+          port: 2552,
+          targetPort: "akka-remoting",
+          protocol: "TCP",
+        },
+        {
+          name: "app-http",
+          port: 8080,
+          targetPort: "app-http",
+          protocol: "TCP",
+        },
+      ],
+    },
+  }
+)
+
+const httpNodeDeployment = new k8s.apps.v1.Deployment(
+  "microstream-http-node-deployment",
+  {
+    metadata: {
+      namespace: appNamespaceName,
+      labels: httpNodeAppLabels,
+    },
+    spec: {
+      replicas: 1,
+      selector: {
+        matchLabels: httpNodeAppLabels,
+      },
+      template: {
+        metadata: { labels: httpNodeAppLabels },
+        spec: {
+          containers: [
+            {
+              name: httpNodeAppName,
+              image: "localhost:5000/microstream-be:latest",
+              // imagePullPolicy: isLocal ? "Never" : "Always",
+              // image:  awsx.ecr.buildAndPushImage("database-side-service", "./databaseside").image(), :thinking
+              env:
+                // todo: use config map
+                [
+                  {
+                    name: "JAVA_OPTS",
+                    value: "-Dconfig.resource=http-node-k8s.conf",
+                  },
+                  // {
+                  //   name: "DB_HOST",
+                  //   value: dbService.metadata.name,
+                  // },
+                ],
+              readinessProbe: {
+                httpGet: {
+                  path: "/ready",
+                  port: "akka-mgmt",
+                },
+                initialDelaySeconds: 10,
+                periodSeconds: 5,
+              },
+              livenessProbe: {
+                httpGet: {
+                  path: "/alive",
+                  port: "akka-mgmt",
+                },
+                initialDelaySeconds: 90,
+                periodSeconds: 30,
+              },
+              ports: [
+                {
+                  name: "akka-mgmt",
+                  containerPort: 8558,
+                  protocol: "TCP",
+                },
+                {
+                  name: "akka-remoting",
+                  containerPort: 2552,
+                  protocol: "TCP",
+                },
+                {
+                  name: "app-http",
+                  containerPort: 8080,
+                  protocol: "TCP",
+                },
+              ],
+              resources: {
+                limits: {
+                  memory: "1024Mi",
+                },
+                requests: {
+                  cpu: "2",
+                  memory: "1024Mi",
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  }
+)
 
 ///
 
@@ -409,36 +495,36 @@ const frontendDeployment = new k8s.apps.v1.Deployment(
 
 ///
 
-// const ingress = new k8s.networking.v1beta1.Ingress("microstream-ingress", {
-//   metadata: {
-//     annotations: {
-//       "kubernetes.io/ingress.class": "nginx",
-//       "nginx.ingress.kubernetes.io/rewrite-target": "/$1",
-//     },
-//   },
-//   spec: {
-//     rules: [
-//       {
-//         host: "localhost",
-//         http: {
-//           paths: [
-//             {
-//               path: "/?(.*)",
-//               backend: {
-//                 serviceName: frontendService.metadata.name,
-//                 servicePort: 3000,
-//               },
-//             },
-//             {
-//               path: "/api/?(.*)",
-//               backend: {
-//                 serviceName: httpNodeService.metadata.name,
-//                 servicePort: 8080,
-//               },
-//             },
-//           ],
-//         },
-//       },
-//     ],
-//   },
-// })
+const ingress = new k8s.networking.v1beta1.Ingress("microstream-ingress", {
+  metadata: {
+    annotations: {
+      "kubernetes.io/ingress.class": "nginx",
+      "nginx.ingress.kubernetes.io/rewrite-target": "/$1",
+    },
+  },
+  spec: {
+    rules: [
+      {
+        host: "localhost",
+        http: {
+          paths: [
+            {
+              path: "/?(.*)",
+              backend: {
+                serviceName: frontendService.metadata.name,
+                servicePort: 3000,
+              },
+            },
+            {
+              path: "/api/?(.*)",
+              backend: {
+                serviceName: httpNodeService.metadata.name,
+                servicePort: 8080,
+              },
+            },
+          ],
+        },
+      },
+    ],
+  },
+})

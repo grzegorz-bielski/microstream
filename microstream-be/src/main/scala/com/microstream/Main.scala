@@ -13,6 +13,8 @@ import org.flywaydb.core.Flyway
 import com.microstream.channel.ChannelGuardian
 import akka.actor.typed.receptionist.Receptionist
 import akka.actor.typed.scaladsl.Routers
+import akka.management.cluster.bootstrap.ClusterBootstrap
+import akka.management.scaladsl.AkkaManagement
 
 object Root extends App {
   lazy val config = ConfigFactory.load
@@ -32,15 +34,18 @@ object RootGuardian {
     if (roles.exists(_ == ChannelNode.Role)) ChannelNode(c)
     if (roles.exists(_ == HttpNode.Role)) HttpNode(c)
     if (isSeedNode(c)) context.spawn(ClusterObserver(), "cluster-observer")
+    if (roles.exists(_ == K8sExtensions.Role)) K8sExtensions()
+
+    def isSeedNode(c: Config) = {
+      val port = c.getString("clustering.port")
+      val defaultPort = c.getString("clustering.defaultPort")
+
+      context.log.info(s"Port: $port, Default port: $defaultPort")
+
+      port == defaultPort
+    }
 
     Behaviors.empty
-  }
-
-  def isSeedNode(c: Config) = {
-    val seedId = c.getString("clustering.seed-ip")
-    val ip = c.getString("clustering.ip")
-
-    seedId == ip
   }
 
 }
@@ -104,5 +109,20 @@ object ChannelNode {
       .dataSource(url, user, password)
       .load()
       .migrate()
+  }
+}
+
+/** Setup needed to form a cluster inside K8s.
+  * Also requires RBAC roles and bindings:
+  * https://doc.akka.io/docs/akka-management/current/kubernetes-deployment/forming-a-cluster.html#role-based-access-control
+  */
+object K8sExtensions {
+  val Role = "k8s"
+
+  def apply()(implicit ctx: ActorContext[_]) = {
+    val system = ctx.system
+
+    AkkaManagement(system).start()
+    ClusterBootstrap(system).start()
   }
 }
