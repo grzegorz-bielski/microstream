@@ -308,6 +308,7 @@ const httpNodeRoleBinding = new k8s.rbac.v1.RoleBinding(
       {
         kind: httpNodeServiceAccount.kind,
         name: httpNodeServiceAccount.metadata.name,
+        namespace: appNamespaceName,
       },
     ],
   }
@@ -354,13 +355,15 @@ const httpNodeDeployment = new k8s.apps.v1.Deployment(
       labels: httpNodeAppLabels,
     },
     spec: {
-      replicas: 1,
+      // replicas: 2, // must be > contact-point-discovery.required-contact-point-nr
+      replicas: 2,
       selector: {
         matchLabels: httpNodeAppLabels,
       },
       template: {
         metadata: { labels: httpNodeAppLabels },
         spec: {
+          serviceAccountName: httpNodeServiceAccount.metadata.name,
           containers: [
             {
               name: httpNodeAppName,
@@ -373,6 +376,18 @@ const httpNodeDeployment = new k8s.apps.v1.Deployment(
                   {
                     name: "JAVA_OPTS",
                     value: "-Dconfig.resource=http-node-k8s.conf",
+                  },
+                  {
+                    name: "NAMESPACE",
+                    valueFrom: {
+                      fieldRef: {
+                        fieldPath: "metadata.namespace",
+                      },
+                    },
+                  },
+                  {
+                    name: "REQUIRED_CONTACT_POINT_NR",
+                    value: "2",
                   },
                   // {
                   //   name: "DB_HOST",
@@ -412,15 +427,15 @@ const httpNodeDeployment = new k8s.apps.v1.Deployment(
                   protocol: "TCP",
                 },
               ],
-              resources: {
-                limits: {
-                  memory: "1024Mi",
-                },
-                requests: {
-                  cpu: "2",
-                  memory: "1024Mi",
-                },
-              },
+              // resources: {
+              //   limits: {
+              //     memory: "1024Mi",
+              //   },
+              //   requests: {
+              //     cpu: "2",
+              //     memory: "1024Mi",
+              //   },
+              // },
             },
           ],
         },
@@ -505,7 +520,6 @@ const ingress = new k8s.networking.v1beta1.Ingress("microstream-ingress", {
   spec: {
     rules: [
       {
-        host: "localhost",
         http: {
           paths: [
             {
