@@ -338,7 +338,7 @@ const httpNodeService = new k8s.core.v1.Service(
         },
         {
           name: "app-http",
-          port: 8080,
+          port: 80,
           targetPort: "app-http",
           protocol: "TCP",
         },
@@ -463,7 +463,7 @@ const frontendService = new k8s.core.v1.Service(
       ports: [
         {
           name: "app-http",
-          port: 3000,
+          port: 80,
           targetPort: "app-http",
           protocol: "TCP",
         },
@@ -510,11 +510,18 @@ const frontendDeployment = new k8s.apps.v1.Deployment(
 
 ///
 
-const ingress = new k8s.networking.v1beta1.Ingress("microstream-ingress", {
+const ingressAppName = "microstream-ingress"
+const ingressAppLabels = {
+  component: ingressAppName,
+}
+
+const ingress = new k8s.networking.v1.Ingress("microstream-ingress", {
   metadata: {
+    namespace: appNamespaceName,
+    labels: ingressAppLabels,
     annotations: {
       "kubernetes.io/ingress.class": "nginx",
-      "nginx.ingress.kubernetes.io/rewrite-target": "/$1",
+      // "nginx.ingress.kubernetes.io/rewrite-target": "/$1",
     },
   },
   spec: {
@@ -523,17 +530,27 @@ const ingress = new k8s.networking.v1beta1.Ingress("microstream-ingress", {
         http: {
           paths: [
             {
-              path: "/?(.*)",
+              path: "/api",
+              pathType: "Prefix",
               backend: {
-                serviceName: frontendService.metadata.name,
-                servicePort: 3000,
+                service: {
+                  name: httpNodeService.metadata.name,
+                  port: {
+                    name: "app-http",
+                  },
+                },
               },
             },
             {
-              path: "/api/?(.*)",
+              path: "/",
+              pathType: "Prefix",
               backend: {
-                serviceName: httpNodeService.metadata.name,
-                servicePort: 8080,
+                service: {
+                  name: frontendService.metadata.name,
+                  port: {
+                    name: "app-http",
+                  },
+                },
               },
             },
           ],

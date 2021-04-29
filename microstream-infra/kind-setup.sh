@@ -17,6 +17,7 @@ if [ "${running}" != 'true' ]; then
 fi
 
 # create a cluster with the local registry enabled in containerd
+# `nodes` field is needed nginx ingress in kind: https://kind.sigs.k8s.io/docs/user/ingress/#create-cluster
 cat <<EOF | kind create cluster --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -24,6 +25,21 @@ containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]
     endpoint = ["http://${reg_name}:${reg_port}"]
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
 EOF
 
 # connect the registry to the cluster network
@@ -44,3 +60,6 @@ data:
     help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
 EOF
 
+# setup a nginx ingress for kind
+# https://kind.sigs.k8s.io/docs/user/ingress/#ingress-nginx
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/kind/deploy.yaml

@@ -19,9 +19,7 @@ type Channel = t.TypeOf<typeof Channel>
 type AppError = Error
 
 export function useChannels(): R.RemoteData<AppError, Channel[]> {
-  const result = useSwr<Channel[], AppError>("http://localhost:8080/api/channels", (url) =>
-    naiveFetcher(url),
-  )
+  const result = useSwr<Channel[], AppError>("/api/channels", (url) => naiveFetcher(url))
 
   const { data, error } = result
 

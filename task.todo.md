@@ -32,7 +32,9 @@ todos: - build backend image:
   - run with `k8s` and `cluster-bootstrap`: https://doc.akka.io/docs/akka/current/additional/deploying.html#cluster-bootstrap
     - ~~fix RBAC auth (logs below)~~
     - ~~fix be image publish (docker aliases)~~
-    - fix akka-cluster contact points (contact-point-discovery.required-contact-point-nr)
+    - ~~fix akka-cluster contact points (contact-point-discovery.required-contact-point-nr)~~
+    - fix failing ingress and routing rules
+    ` kubectl port-forward service/microstream-frontend-service-bcyysv3o 3000:app-http -n microstream-gmglxllo`
     - inspect failing db deployment
 
     https://doc.akka.io/docs/akka-management/current/kubernetes-deployment/forming-a-cluster.html 
