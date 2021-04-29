@@ -16,6 +16,8 @@ if [ "${running}" != 'true' ]; then
     registry:2
 fi
 
+dbDataPath="$(pwd)/data/volumes/microstream-db-pv"
+
 # create a cluster with the local registry enabled in containerd
 # `nodes` field is needed nginx ingress in kind: https://kind.sigs.k8s.io/docs/user/ingress/#create-cluster
 cat <<EOF | kind create cluster --config=-
@@ -40,6 +42,9 @@ nodes:
   - containerPort: 443
     hostPort: 443
     protocol: TCP
+  extraMounts:
+  - hostPath: $dbDataPath
+    containerPath: /microstream-db-pv
 EOF
 
 # connect the registry to the cluster network

@@ -33,9 +33,14 @@ todos: - build backend image:
     - ~~fix RBAC auth (logs below)~~
     - ~~fix be image publish (docker aliases)~~
     - ~~fix akka-cluster contact points (contact-point-discovery.required-contact-point-nr)~~
-    - fix failing ingress and routing rules
-    ` kubectl port-forward service/microstream-frontend-service-bcyysv3o 3000:app-http -n microstream-gmglxllo`
+    - ~~fix failing ingress and routing rules~~
+    ~~` kubectl port-forward service/microstream-frontend-service-bcyysv3o 3000:app-http -n microstream-gmglxllo`~~
     - inspect failing db deployment
+    - fix channel-node auth:
+
+    ```
+    Forbidden to communicate with Kubernetes API server; check RBAC settings. Response: [{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"pods is forbidden: User \"system:serviceaccount:microstream-sgpvwi73:microstream-channel-node-service-account-ziikr9wu\" cannot list resource \"pods\" in API group \"\" in the namespace \"microstream\"","reason":"Forbidden","details":{"kind":"pods"},"code":403}
+    ```
 
     https://doc.akka.io/docs/akka-management/current/kubernetes-deployment/forming-a-cluster.html 
     https://github.com/pulumi/examples/blob/master/aws-ts-k8s-mern-voting-app/index.ts
