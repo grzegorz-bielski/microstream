@@ -137,6 +137,14 @@ const dbStatefulSet = new k8s.apps.v1.StatefulSet(
             {
               name: "postgres",
               image: "postgres:13.0",
+              args: [
+                "-c",
+                // should be hardly necessary
+                // but for some reason the app uses 206 connections when active (postgres default is 100)
+                // and 126 after booted :thinking
+                // (could be related to flaky akka projection connections :thinking)
+                "max_connections=1000",
+              ],
               // imagePullPolicy: isLocal ? "Never" : "Always",
               ports: [
                 {
@@ -302,6 +310,10 @@ const channelNodeDeployment = new k8s.apps.v1.Deployment(
                     name: "DB_HOST",
                     value: dbService.metadata.name,
                   },
+                  {
+                    name: "DB_PORT",
+                    value: "5432", // taken from dbService
+                  },
                 ],
               readinessProbe: {
                 httpGet: {
@@ -350,6 +362,8 @@ const channelNodeDeployment = new k8s.apps.v1.Deployment(
     dependsOn: dbStatefulSet,
   }
 )
+
+export const channelNodePods = channelNodeDeployment.spec.template.metadata.name
 
 ///
 
@@ -587,6 +601,16 @@ const frontendDeployment = new k8s.apps.v1.Deployment(
     },
   }
 )
+
+/// dashboard
+
+// const k8sDashboard = new k8s.yaml.ConfigFile("microstream-dashboard-ui", {
+//   file:
+//     "https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0/aio/deploy/recommended.yaml",
+// })
+
+// needs user: https://github.com/kubernetes/dashboard/blob/master/docs/user/access-control/creating-sample-user.md
+// https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/
 
 ///
 

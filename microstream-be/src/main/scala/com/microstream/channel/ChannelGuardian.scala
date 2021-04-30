@@ -91,9 +91,8 @@ object ChannelGuardian {
     }
 
     def handleInternal(m: PrivateMessage): Behavior[Message] = m match {
-
       case PrivateMessage.ChannelCreationFailure(e, id, replyTo) =>
-        context.log.warn("Failed to open a new channel: {}", id)
+        context.log.warn("Failed to open a new channel: {}, error: {}", id, e.getStackTrace())
         replyTo ! StatusReply.Error(e.toString)
 
         Behaviors.same

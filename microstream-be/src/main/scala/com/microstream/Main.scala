@@ -90,7 +90,7 @@ object ChannelNode {
   val Role = "channel"
 
   def apply(c: Config)(implicit ctx: ActorContext[_]) = {
-    ChannelNode.migrate(c)
+    ChannelNode.migrate(c) // todo: this could result in conflict if multiple nodes would join at the same time
 
     val channelGuardian = ctx.spawn(ChannelGuardian(Role), "channel-guardian")
     ctx.system.receptionist ! Receptionist.Register(ChannelGuardian.Key, channelGuardian)

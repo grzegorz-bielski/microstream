@@ -3,6 +3,8 @@ package com.microstream.channel
 import com.microstream.CborSerializable
 import scala.concurrent.duration._
 
+import akka.actor.typed.scaladsl.Behaviors
+import akka.persistence.typed.{SnapshotFailed, RecoveryFailed}
 import akka.persistence.typed.scaladsl.{
   Effect,
   ReplyEffect,
@@ -14,6 +16,7 @@ import akka.cluster.sharding.typed.{ClusterShardingSettings}
 import akka.actor.typed.{ActorSystem, ActorRef, Behavior, SupervisorStrategy}
 import akka.persistence.typed.PersistenceId
 import akka.pattern.StatusReply
+import org.slf4j.LoggerFactory
 import com.fasterxml.jackson.annotation._
 
 /** `ChannelStore` is responsible for managing persistent state
@@ -21,6 +24,8 @@ import com.fasterxml.jackson.annotation._
   */
 object ChannelStore {
   val EntityKey = EntityTypeKey[Command]("channel-store")
+
+  private val logger = LoggerFactory.getLogger(getClass)
 
   // arbitrary, ~ 10 X the planned number of nodes in cluster
   val tags = Vector.tabulate(3)(i => s"channel-tag-$i")
@@ -142,4 +147,12 @@ object ChannelStore {
           randomFactor = 0.1
         )
       )
+      .receiveSignal {
+        case (_, SnapshotFailed(meta, err)) =>
+          logger.error("SnapshotFailed: {}", meta, err)
+          Behaviors.same
+        case (_, RecoveryFailed(err)) =>
+          logger.error("RecoveryFailed", err)
+          Behaviors.same
+      }
 }
