@@ -37,7 +37,9 @@ todos: - build backend image:
     ~~` kubectl port-forward service/microstream-frontend-service-bcyysv3o 3000:app-http -n microstream-gmglxllo`~~
     ~~- inspect failing db deployment~~
     ~~- fix channel-node auth:~~
-    - check failing snapshot recovery on channel-node
+    ~~- check failing snapshot recovery on channel-node~~
+    - use k8s secrets and config maps
+    - local dev setup with skaffold / tilt / (custom pulumi automation API script (?))
 
 
     https://doc.akka.io/docs/akka-management/current/kubernetes-deployment/forming-a-cluster.html 
