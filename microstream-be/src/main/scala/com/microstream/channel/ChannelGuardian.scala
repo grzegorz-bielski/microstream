@@ -20,11 +20,17 @@ import slick.jdbc.PostgresProfile
 import akka.actor.TypedActor
 import akka.actor.typed.PostStop
 import akka.actor.typed.Terminated
+import akka.actor.typed.receptionist.ServiceKey
 
+/** `ChannelGuardian` is an aggregate root responsible for managing
+  * the `Channel`s and its adjacent `ChannelStore`s.
+  */
 object ChannelGuardian {
+  val Key = ServiceKey[Message]("channel-guardian")
+
   sealed trait Message extends CborSerializable
   object Message {
-    case class GetChannels(replyTo: ActorRef[StatusReply[Seq[Tables.ChannelRow]]]) extends Message
+    case class GetChannels(replyTo: ActorRef[StatusReply[GetChannelsPayload]]) extends Message
     case class CreateChannel(dto: CreateChannelDto, replyTo: ActorRef[StatusReply[Channel.Id]])
         extends Message
     case class JoinChannel(
@@ -35,6 +41,7 @@ object ChannelGuardian {
   }
 
   case class ChannelJoinedPayload(ref: ActorRef[Session.Message]) extends CborSerializable
+  case class GetChannelsPayload(channels: Seq[ChannelQueryDto]) extends CborSerializable
 
   private trait PrivateMessage extends Message
   private object PrivateMessage {
@@ -66,7 +73,7 @@ object ChannelGuardian {
     val projectionDbConfig = DatabaseConfig
       .forConfig[PostgresProfile]("projectionDb.slick", context.system.settings.config)
 
-    val readDb = readDbConfig.db // todo: release on stopped
+    val readDb = readDbConfig.db
 
     val readRepo = new ChannelRepository(readDbConfig)
     val sharding = ClusterSharding(system)
@@ -84,10 +91,9 @@ object ChannelGuardian {
     }
 
     def handleInternal(m: PrivateMessage): Behavior[Message] = m match {
-
       case PrivateMessage.ChannelCreationFailure(e, id, replyTo) =>
-        context.log.warn("Failed to open a new channel: {}", id)
-        replyTo ! StatusReply.Error(e)
+        context.log.warn("Failed to open a new channel: {}, error: {}", id, e.getStackTrace())
+        replyTo ! StatusReply.Error(e.toString)
 
         Behaviors.same
 
@@ -156,8 +162,11 @@ object ChannelGuardian {
         case Message.GetChannels(replyTo) =>
           // todo: move general CRUD up a layer / create orthogonal service
           readDb.run(readRepo.getChannels).onComplete {
-            case Failure(e)        => replyTo ! StatusReply.Error(e)
-            case Success(channels) => replyTo ! StatusReply.Success(channels)
+            case Failure(e) => replyTo ! StatusReply.Error(e.toString)
+            case Success(channels) =>
+              replyTo ! StatusReply.Success(
+                GetChannelsPayload(channels.map(c => ChannelQueryDto(c.id, c.name, c.createdAt)))
+              )
           }
 
           Behaviors.same

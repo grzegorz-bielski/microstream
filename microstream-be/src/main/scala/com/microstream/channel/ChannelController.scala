@@ -34,7 +34,7 @@ class ChannelController(chanGuardian: ActorRef[ChannelGuardian.Message])(implici
         onComplete {
           chanGuardian
             .askWithStatus(ChannelGuardian.Message.GetChannels(_))
-            .map(_.map(c => ChannelQueryDto(c.id, c.name, c.createdAt)))
+            .map(_.channels)
         } {
           case Success(a)                             => complete(StatusCodes.OK -> a)
           case Failure(StatusReply.ErrorMessage(msg)) => complete(StatusCodes.BadRequest -> msg)

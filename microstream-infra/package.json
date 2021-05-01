@@ -1,0 +1,10 @@
+{
+  "name": "microstream-infra",
+  "devDependencies": {
+    "@types/node": "^10.0.0"
+  },
+  "dependencies": {
+    "@pulumi/kubernetes": "^3.1.0",
+    "@pulumi/pulumi": "^3.1.0"
+  }
+}

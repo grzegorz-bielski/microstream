@@ -1,0 +1,47 @@
+version: '3.8'
+
+services: 
+  db:
+    container_name: db-service
+    env_file: .dev_env
+    image: postgres:13.0
+    command: postgres -c 'max_connections=200'
+    restart: unless-stopped
+    ports: 
+      - 5432:5432
+    volumes:
+      - ./dbData:/var/lib/postgresql/data
+
+  # seed node
+  microstream-channel:
+    env_file: .dev_env
+    depends_on: 
+      - db
+    image: microstream:0.0.1
+    command: -Dconfig.resource=channel-node.conf
+    ports:
+      - 1600:1600
+    environment:
+      CLUSTER_PORT: 1600
+      CLUSTER_IP: microstream-channel
+      SEED_PORT_1600_TCP_ADDR: microstream-channel
+
+  microstream-http:
+    env_file: .dev_env
+    depends_on: 
+      - microstream-channel
+    image: microstream:0.0.1
+    command: -Dconfig.resource=http-node.conf
+    ports: 
+      - 8080:8080
+      - 1601:1601
+    environment:
+      CLUSTER_PORT: 1601
+      CLUSTER_IP: microstream-http
+      SEED_PORT_1600_TCP_ADDR: microstream-channel
+
+  frontend:
+    env_file: .dev_env 
+    image: microstream-fe
+    ports:
+      - 3000:3000
