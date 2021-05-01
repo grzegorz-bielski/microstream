@@ -1,5 +1,4 @@
 import * as k8s from "@pulumi/kubernetes"
-import ServicePort = k8s.types.input.core.v1.ServicePort
 
 import { provider, appNamespaceName } from "./shared"
 

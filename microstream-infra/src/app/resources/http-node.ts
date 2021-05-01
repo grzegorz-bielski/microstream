@@ -1,6 +1,11 @@
 import * as k8s from "@pulumi/kubernetes"
 
-import { provider, appNamespaceName } from "./shared"
+import {
+  provider,
+  appNamespaceName,
+  httpNodeReplicas,
+  appConfigMap,
+} from "./shared"
 
 const httpNodeAppName = "microstream-http-node"
 const httpNodeAppLabels = {
@@ -104,8 +109,6 @@ export const httpNodeService = new k8s.core.v1.Service(
   }
 )
 
-const httpNodeReplicas = 1
-
 export const httpNodeDeployment = new k8s.apps.v1.Deployment(
   "microstream-http-node-deployment",
   {
@@ -127,18 +130,26 @@ export const httpNodeDeployment = new k8s.apps.v1.Deployment(
               name: httpNodeAppName,
               image: "localhost:5000/microstream-be:latest",
               // image:  awsx.ecr.buildAndPushImage("database-side-service", "./databaseside").image(), :thinking
-              env:
-                // todo: use config map
-                [
-                  {
-                    name: "JAVA_OPTS",
-                    value: "-Dconfig.resource=http-node-k8s.conf",
+              env: [
+                {
+                  name: "JAVA_OPTS",
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: appConfigMap.metadata.name,
+                      key: "HTTP_NODE_JAVA_OPTS",
+                    },
                   },
-                  {
-                    name: "REQUIRED_CONTACT_POINT_NR",
-                    value: httpNodeReplicas.toString(),
+                },
+                {
+                  name: "REQUIRED_CONTACT_POINT_NR",
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: appConfigMap.metadata.name,
+                      key: "HTTP_NODES",
+                    },
                   },
-                ],
+                },
+              ],
               readinessProbe: {
                 httpGet: {
                   path: "/ready",

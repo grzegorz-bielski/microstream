@@ -1,6 +1,11 @@
 import * as k8s from "@pulumi/kubernetes"
 
-import { provider, appNamespaceName, channelNodeReplicas } from "./shared"
+import {
+  provider,
+  appNamespaceName,
+  channelNodeReplicas,
+  appConfigMap,
+} from "./shared"
 import { dbService, dbStatefulSet } from "./database"
 
 const channelNodeAppName = "microstream-channel-node"
@@ -110,26 +115,39 @@ export const channelNodeDeployment = new k8s.apps.v1.Deployment(
               name: channelNodeAppName,
               image: "localhost:5000/microstream-be:latest",
               // image:  awsx.ecr.buildAndPushImage("database-side-service", "./databaseside").image(), :thinking
-              env:
-                // todo: use config map
-                [
-                  {
-                    name: "JAVA_OPTS",
-                    value: "-Dconfig.resource=channel-node-k8s.conf",
+              env: [
+                {
+                  name: "JAVA_OPTS",
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: appConfigMap.metadata.name,
+                      key: "CHANNEL_NODE_JAVA_OPTS",
+                    },
                   },
-                  {
-                    name: "REQUIRED_CONTACT_POINT_NR",
-                    value: channelNodeReplicas.toString(),
+                },
+                {
+                  name: "REQUIRED_CONTACT_POINT_NR",
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: appConfigMap.metadata.name,
+                      key: "CHANNEL_NODES",
+                    },
                   },
-                  {
-                    name: "DB_HOST",
-                    value: dbService.metadata.name,
+                },
+                {
+                  name: "DB_HOST",
+                  value: dbService.metadata.name,
+                },
+                {
+                  name: "DB_PORT",
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: appConfigMap.metadata.name,
+                      key: "POSTGRES_PORT",
+                    },
                   },
-                  {
-                    name: "DB_PORT",
-                    value: "5432", // taken from dbService
-                  },
-                ],
+                },
+              ],
               readinessProbe: {
                 httpGet: {
                   path: "/ready",

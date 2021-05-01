@@ -1,6 +1,13 @@
 import * as k8s from "@pulumi/kubernetes"
 
-import { provider, appNamespaceName, channelNodeReplicas } from "./shared"
+import {
+  provider,
+  appNamespaceName,
+  channelNodeReplicas,
+  exportedDbPortNumber,
+  appConfigMap,
+  dbCredentials,
+} from "./shared"
 
 const dbAppName = "microstream-db"
 const dbAppLabels = {
@@ -90,6 +97,17 @@ export const dbPersistentVolumeClaim = new k8s.core.v1.PersistentVolumeClaim(
   }
 )
 
+const internalPort = {
+  name: "app-postgres",
+  containerPort: 5432,
+  protocol: "TCP",
+}
+
+export const exportedDbPort = {
+  port: exportedDbPortNumber,
+  targetPort: internalPort.name,
+}
+
 export const dbService = new k8s.core.v1.Service(
   "microstream-db-service",
   {
@@ -102,12 +120,22 @@ export const dbService = new k8s.core.v1.Service(
     },
     spec: {
       selector: dbAppLabels,
-      ports: [
-        {
-          port: 5432,
-          targetPort: "app-postgres", // todo: take from config map
-        },
-      ],
+      ports: [exportedDbPort],
+    },
+  },
+  { provider }
+)
+
+export const dbCredentialsSecret = new k8s.core.v1.Secret(
+  "microstream-db-credential-secret",
+  {
+    metadata: {
+      namespace: appNamespaceName,
+      labels: dbAppLabels,
+    },
+    stringData: {
+      POSTGRES_USER: dbCredentials.username,
+      POSTGRES_PASSWORD: dbCredentials.password,
     },
   },
   { provider }
@@ -152,13 +180,7 @@ export const dbStatefulSet = new k8s.apps.v1.StatefulSet(
               name: "postgres",
               image: "postgres:13.0",
               args: ["-c", `max_connections=${maxPgConnections}`],
-              ports: [
-                {
-                  name: "app-postgres",
-                  containerPort: 5432,
-                  protocol: "TCP",
-                },
-              ],
+              ports: [internalPort],
               volumeMounts: [
                 {
                   name: "postgres-db-volume",
@@ -170,19 +192,34 @@ export const dbStatefulSet = new k8s.apps.v1.StatefulSet(
               env: [
                 {
                   name: "POSTGRES_DB",
-                  value: "postgres",
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: appConfigMap.metadata.name,
+                      key: "POSTGRES_DB",
+                    },
+                  },
                 },
                 {
                   name: "POSTGRES_USER",
-                  value: "postgres",
+                  valueFrom: {
+                    secretKeyRef: {
+                      name: dbCredentialsSecret.metadata.name,
+                      key: "POSTGRES_USER",
+                    },
+                  },
                 },
                 {
                   name: "POSTGRES_PASSWORD",
-                  value: "postgres", // todo: use secret
+                  valueFrom: {
+                    secretKeyRef: {
+                      name: dbCredentialsSecret.metadata.name,
+                      key: "POSTGRES_PASSWORD",
+                    },
+                  },
                 },
                 {
                   name: "POSTGRES_PORT",
-                  value: "5432",
+                  value: internalPort.containerPort.toString(),
                 },
               ],
             },
