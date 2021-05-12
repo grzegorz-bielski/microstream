@@ -7,6 +7,7 @@
     "watch": "ts-node ./src/watcher.ts"
   },
   "dependencies": {
+    "@pulumi/docker": "^3.0.0",
     "@pulumi/kubernetes": "^3.1.0",
     "@pulumi/pulumi": "^3.1.0",
     "rxjs": "^7.0.0",
