@@ -7,6 +7,7 @@ import {
   appConfigMap,
 } from "./shared"
 import { dbService, dbStatefulSet } from "./database"
+import { backendImage } from "./node-image"
 
 const channelNodeAppName = "microstream-channel-node"
 const channelNodeAppLabels = {
@@ -113,7 +114,8 @@ export const channelNodeDeployment = new k8s.apps.v1.Deployment(
           containers: [
             {
               name: channelNodeAppName,
-              image: "localhost:5000/microstream-be:latest",
+              image: backendImage.apply((i) => i.imageName),
+              // image: "localhost:5000/microstream-be:latest",
               // image:  awsx.ecr.buildAndPushImage("database-side-service", "./databaseside").image(), :thinking
               env: [
                 {
