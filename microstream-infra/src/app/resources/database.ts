@@ -14,6 +14,8 @@ const dbAppLabels = {
   component: dbAppName,
 }
 
+// todo: backups https://cwienczek.com/2020/06/simple-backup-of-postgres-database-in-kubernetes/
+
 // todo: some of the `dependsOn` might not be necessary
 
 // local volume setup
