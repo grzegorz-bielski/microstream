@@ -1,1 +1,3 @@
-- try finishing the watcher / switch to skaffold for dev
+- switch to skaffold for dev:
+  - fix the dev.Dockerfile build for the fe 
+  - create lightweight dev image for be: https://jrtechs.net/java/running-scala-code-in-docker

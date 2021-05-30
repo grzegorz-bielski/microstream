@@ -11,7 +11,7 @@ export default function Channels() {
 
   return (
     <Box>
-      <Heading as="h2">Hublasbublas!!!!</Heading>
+      <Heading as="h2">Hublasbublas!!!!XDDD</Heading>
       {pipe(
         channels,
         R.fold3(

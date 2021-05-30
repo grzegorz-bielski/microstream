@@ -10,9 +10,14 @@ const frontendAppLabels = {
   component: frontendAppName,
 }
 
+const frontendPath = path.resolve(__dirname, "../../../../microstream-fe")
+const frontendDockerCtx = `${frontendPath}/`
+const frontendDevDockerfile = `${frontendDockerCtx}dev.Dockerfile`
+
 const frontendImage = new docker.Image("microstream-frontend-image", {
   build: {
-    context: path.resolve(__dirname, "../../../../microstream-fe/"),
+    context: frontendDockerCtx,
+    dockerfile: frontendDevDockerfile,
   },
   imageName: "localhost:5000/microstream-fe:latest",
   // registry: {

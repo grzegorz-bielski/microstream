@@ -1,3 +1,4 @@
+import { config as dotEnvConfig } from "dotenv"
 import * as k8s from "@pulumi/kubernetes"
 
 export const exportedDbPortNumber = 5432
@@ -18,7 +19,9 @@ const sharedAppLabels = {
   component: sharedAppName,
 }
 
-export const provider: k8s.Provider | undefined = void 0
+export const provider = new k8s.Provider("render-yaml", {
+  renderYamlToDirectory: "rendered",
+})
 
 export const appNamespace = new k8s.core.v1.Namespace(
   "microstream",

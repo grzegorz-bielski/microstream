@@ -1,5 +1,6 @@
 /bin/
 /node_modules/
+/src/app/rendered
 dbData
 data/volumes/microstream-db-pv/*
 !data/volumes/microstream-db-pv/.gitkeep

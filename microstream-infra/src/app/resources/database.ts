@@ -151,6 +151,8 @@ const maxPgConnections =
     40    // projection pool
   ) + 50 // buffer
 
+export const dbImageName = "postgres:13.0"
+
 export const dbStatefulSet = new k8s.apps.v1.StatefulSet(
   "microstream-db-statefulset",
   {
@@ -180,7 +182,7 @@ export const dbStatefulSet = new k8s.apps.v1.StatefulSet(
           containers: [
             {
               name: "postgres",
-              image: "postgres:13.0",
+              image: dbImageName,
               args: ["-c", `max_connections=${maxPgConnections}`],
               ports: [internalPort],
               volumeMounts: [
