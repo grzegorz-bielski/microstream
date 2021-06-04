@@ -11,4 +11,4 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run dev
+CMD npm run dev

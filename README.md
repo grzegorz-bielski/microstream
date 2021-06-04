@@ -1,16 +1,15 @@
 # microstream.ch app
 
+## local deps
+- kind, skaffold, pulumi, 
+
 ## local dev
 
-1. Create local k8 cluster in Docker using Kind
+1. Create local k8 cluster in Docker, render ymls, generate skaffold config
     ```sh
-    ./microstream-infra/kind-setup.sh
+    ./microstream-infra/local-setup.sh
     ```
-2. Generate yamls for Skaffold through Pulumi
-    ```sh
-    ./microstream-infra/skaffold-setup.sh
-    ```
-3. Run Skaffold 
+2. Run skaffold 
     ```sh
     skaffold dev
     ```

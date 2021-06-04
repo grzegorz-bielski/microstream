@@ -1,4 +1,4 @@
 .metals
 .vscode
 arch-diagram.json
-skaffold.yaml
+skaffold.yml

@@ -6,6 +6,15 @@
 
 set -o errexit
 
+isAlreadyDefined=$(kind get clusters | grep "kind")
+
+if [ "$isAlreadyDefined" -eq 0 ]; then
+echo "Creating new local cluster"
+else 
+echo "Local cluster already created. Aborting"
+exit 0
+fi
+
 # create registry container unless it already exists
 reg_name='kind-registry'
 reg_port='5000'
