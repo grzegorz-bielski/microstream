@@ -189,7 +189,7 @@ export const dbStatefulSet = new k8s.apps.v1.StatefulSet(
                 {
                   name: "postgres-db-volume",
                   mountPath: "/var/lib/postgresql/data",
-                  subPath: "postgress",
+                  subPath: "postgres",
                 },
               ],
               // todo: use config map

@@ -165,6 +165,15 @@ export const channelNodeDeployment = new k8s.apps.v1.Deployment(
                     },
                   },
                 },
+                {
+                  name: "DB_SSL",
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: appConfigMap.metadata.name,
+                      key: "DB_SSL",
+                    },
+                  },
+                },
               ],
               readinessProbe: {
                 httpGet: {

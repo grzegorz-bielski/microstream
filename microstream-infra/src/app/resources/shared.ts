@@ -48,6 +48,7 @@ export const appConfigMap = new k8s.core.v1.ConfigMap(
       CHANNEL_NODE_JAVA_OPTS: "-Dconfig.resource=channel-node-k8s.conf",
       HTTP_NODES: httpNodeReplicas.toString(),
       HTTP_NODE_JAVA_OPTS: "-Dconfig.resource=http-node-k8s.conf",
+      DB_SSL: "disable",
     },
   },
   { provider }

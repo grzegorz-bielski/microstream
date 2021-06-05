@@ -7,16 +7,20 @@ import { promises as fsp } from "fs"
 import { promisify } from "util"
 
 const backendPath = path.resolve(__dirname, "../../../../microstream-be")
-const backendDockerCtx = `${backendPath}/target/docker/stage/`
+const devBackendDockerCtx = `${backendPath}/`
+const devBackendDockerfile = `${devBackendDockerCtx}dev.Dockerfile`
+const prodBackendDockerCtx = `${backendPath}/target/docker/stage/`
+const prodBackendDockerfile = `${prodBackendDockerCtx}Dockerfile`
 
 export const backendImage = pulumi.output(
-  pathExists(backendDockerCtx)
+  pathExists(devBackendDockerCtx)
     .then((exists) => (exists ? Promise.resolve() : createBackendDockerfile()))
     .then(
       () =>
         new docker.Image("microstream-backend-image", {
           build: {
-            context: backendDockerCtx,
+            context: devBackendDockerCtx,
+            dockerfile: devBackendDockerfile,
           },
           imageName: "localhost:5000/microstream-be:latest",
           // registry: {
@@ -36,7 +40,7 @@ function pathExists(p: string) {
 }
 
 function createBackendDockerfile() {
-  console.log(`Generating image ${backendDockerCtx} through sbt...`)
+  console.log(`Generating image ${prodBackendDockerCtx} through sbt...`)
 
   return promisify(exec)(`sbt "docker:stage"`, { cwd: backendPath }).then(
     (streams) => {

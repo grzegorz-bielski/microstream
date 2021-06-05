@@ -1,6 +1,9 @@
 # microstream.ch app
 
 ## local deps
+- Docker
+- node, npm
+- sbt, scala, java
 - kind, skaffold, pulumi, 
 
 ## local dev

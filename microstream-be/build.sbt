@@ -9,8 +9,6 @@ enablePlugins(
 ThisBuild / scalaVersion := "2.13.5"
 ThisBuild / version := "0.0.1"
 
-Compile / run / fork := true
-
 val akkaVersion = "2.6.12"
 val akkaHttpVersion = "10.2.3"
 val slickVersion = "3.3.3"
