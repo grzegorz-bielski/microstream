@@ -15,4 +15,6 @@ RUN sbt compile
 EXPOSE 2552 8080 8558 5432
 
 COPY . .
-CMD sbt compile run
+RUN sbt compile
+
+CMD sbt "~reStart"

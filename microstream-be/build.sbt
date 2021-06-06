@@ -106,7 +106,10 @@ slickGen := {
   Seq(outputDir / lib / pkg / "Tables.scala")
 }
 
-/// packaging
+// forward java ops from JAVA_OPTS to forked JVM for dev.Dockerfile
+reStart / javaOptions := sys.env("JAVA_OPTS").split(' ').toSeq
+
+/// prod packaging 
 packageName := "microstream-be"
 dockerBaseImage := "openjdk:8-jre-alpine"
 dockerExposedPorts ++= Seq(

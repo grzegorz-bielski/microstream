@@ -29,8 +29,6 @@ class ChannelController(chanGuardian: ActorRef[ChannelGuardian.Message])(implici
     import akka.http.scaladsl.server.Directives._
     import akka.http.scaladsl.model._
 
-    println("xd")
-
     (cors() & pathPrefix("channels")) {
       (pathEndOrSingleSlash & get) {
         onComplete {
