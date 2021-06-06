@@ -6,6 +6,7 @@ import {
   httpNodeReplicas,
   appConfigMap,
 } from "./shared"
+import { backendImage } from "./node-image"
 
 const httpNodeAppName = "microstream-http-node"
 const httpNodeAppLabels = {
@@ -128,7 +129,8 @@ export const httpNodeDeployment = new k8s.apps.v1.Deployment(
           containers: [
             {
               name: httpNodeAppName,
-              image: "localhost:5000/microstream-be:latest",
+              image: backendImage.apply((i) => i.imageName),
+              // image: "localhost:5000/microstream-be:latest",
               // image:  awsx.ecr.buildAndPushImage("database-side-service", "./databaseside").image(), :thinking
               env: [
                 {

@@ -1,10 +1,20 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+set -o errexit
 
 # based on: 
 # - https://kind.sigs.k8s.io/docs/user/local-registry/
 # - https://sookocheff.com/post/kubernetes/local-kubernetes-development-with-kind/
 
-set -o errexit
+isAlreadyDefined=$( (kind get clusters | grep "kind") &>/dev/null && echo 1 || echo 0 )
+
+if [ "$isAlreadyDefined" -eq 0 ]; then
+  echo "Proceeding to create a new local cluster"
+else 
+  echo "Local cluster already created. Aborting"
+  exit 0
+fi
+
 
 # create registry container unless it already exists
 reg_name='kind-registry'
@@ -16,7 +26,7 @@ if [ "${running}" != 'true' ]; then
     registry:2
 fi
 
-dbDataPath="$(pwd)/data/volumes/microstream-db-pv"
+dbDataPath="$(pwd)/microstream-infra/data/volumes/microstream-db-pv"
 
 # create a cluster with the local registry enabled in containerd
 # `nodes` field is needed nginx ingress in kind: https://kind.sigs.k8s.io/docs/user/ingress/#create-cluster

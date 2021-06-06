@@ -14,6 +14,8 @@ const dbAppLabels = {
   component: dbAppName,
 }
 
+// todo: backups https://cwienczek.com/2020/06/simple-backup-of-postgres-database-in-kubernetes/
+
 // todo: some of the `dependsOn` might not be necessary
 
 // local volume setup
@@ -149,6 +151,8 @@ const maxPgConnections =
     40    // projection pool
   ) + 50 // buffer
 
+export const dbImageName = "postgres:13.0"
+
 export const dbStatefulSet = new k8s.apps.v1.StatefulSet(
   "microstream-db-statefulset",
   {
@@ -178,14 +182,14 @@ export const dbStatefulSet = new k8s.apps.v1.StatefulSet(
           containers: [
             {
               name: "postgres",
-              image: "postgres:13.0",
+              image: dbImageName,
               args: ["-c", `max_connections=${maxPgConnections}`],
               ports: [internalPort],
               volumeMounts: [
                 {
                   name: "postgres-db-volume",
                   mountPath: "/var/lib/postgresql/data",
-                  subPath: "postgress",
+                  subPath: "postgres",
                 },
               ],
               // todo: use config map

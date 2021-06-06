@@ -9,8 +9,6 @@ enablePlugins(
 ThisBuild / scalaVersion := "2.13.5"
 ThisBuild / version := "0.0.1"
 
-Compile / run / fork := true
-
 val akkaVersion = "2.6.12"
 val akkaHttpVersion = "10.2.3"
 val slickVersion = "3.3.3"
@@ -108,7 +106,10 @@ slickGen := {
   Seq(outputDir / lib / pkg / "Tables.scala")
 }
 
-/// packaging
+// forward java ops from JAVA_OPTS to forked JVM for dev.Dockerfile
+reStart / javaOptions := sys.env("JAVA_OPTS").split(' ').toSeq
+
+/// prod packaging 
 packageName := "microstream-be"
 dockerBaseImage := "openjdk:8-jre-alpine"
 dockerExposedPorts ++= Seq(

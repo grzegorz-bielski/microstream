@@ -6,7 +6,13 @@ import {
   channelNodeReplicas,
   appConfigMap,
 } from "./shared"
-import { dbService, dbStatefulSet } from "./database"
+import {
+  dbService,
+  dbStatefulSet,
+  dbImageName,
+  exportedDbPort,
+} from "./database"
+import { backendImage } from "./node-image"
 
 const channelNodeAppName = "microstream-channel-node"
 const channelNodeAppLabels = {
@@ -110,10 +116,22 @@ export const channelNodeDeployment = new k8s.apps.v1.Deployment(
         metadata: { labels: channelNodeAppLabels },
         spec: {
           serviceAccountName: channelNodeServiceAccount.metadata.name,
+          initContainers: [
+            {
+              name: "check-db-ready",
+              image: dbImageName,
+              command: dbService.metadata.name.apply((host) => [
+                "sh",
+                "-c",
+                `until pg_isready -h ${host} -p ${exportedDbPort.port}; do echo waiting for database; sleep 2; done;`,
+              ]),
+            },
+          ],
           containers: [
             {
               name: channelNodeAppName,
-              image: "localhost:5000/microstream-be:latest",
+              image: backendImage.apply((i) => i.imageName),
+              // image: "localhost:5000/microstream-be:latest",
               // image:  awsx.ecr.buildAndPushImage("database-side-service", "./databaseside").image(), :thinking
               env: [
                 {
@@ -144,6 +162,15 @@ export const channelNodeDeployment = new k8s.apps.v1.Deployment(
                     configMapKeyRef: {
                       name: appConfigMap.metadata.name,
                       key: "POSTGRES_PORT",
+                    },
+                  },
+                },
+                {
+                  name: "DB_SSL",
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: appConfigMap.metadata.name,
+                      key: "DB_SSL",
                     },
                   },
                 },
